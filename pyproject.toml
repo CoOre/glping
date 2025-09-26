@@ -8,14 +8,13 @@ version = "0.0.1"
 description = "CLI-утилита для отслеживания событий в GitLab"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Vladimir Nosov"}
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",    
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -28,6 +27,9 @@ dependencies = [
     "click>=8.0.0",
     "requests>=2.25.0",
     "aiohttp>=3.8.0",
+    "python-gitlab>=4.0.0",
+    "python-dotenv>=1.0.0",
+    "plyer>=2.0.0",
 ]
 
 [project.optional-dependencies]
