@@ -8,6 +8,7 @@ We welcome contributions to GitLab Ping! This document provides guidelines and i
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Making Changes](#making-changes)
+- [Version Management](#version-management)
 - [Submitting Changes](#submitting-changes)
 - [Reporting Issues](#reporting-issues)
 - [Style Guidelines](#style-guidelines)
@@ -121,6 +122,61 @@ feat(notifier): add macOS notification stacking support
 fix(api): handle rate limiting errors gracefully
 docs(readme): update installation instructions
 ```
+
+## Version Management
+
+This project uses automated version management with `bump2version`. Versions follow semantic versioning (major.minor.patch).
+
+### Automatic Version Bumping
+
+When changes are pushed to the `main` branch, the CI/CD pipeline automatically:
+1. Increments the patch version (e.g., 0.0.1 → 0.0.2)
+2. Updates version in all project files
+3. Creates a Git tag with the new version
+4. Creates a GitHub release with all artifacts
+
+### Manual Version Bumping
+
+For local development, you can manually bump versions:
+
+```bash
+# Bump patch version (0.0.1 → 0.0.2)
+bump2version patch
+
+# Bump minor version (0.0.1 → 0.1.0)
+bump2version minor
+
+# Bump major version (0.0.1 → 1.0.0)
+bump2version major
+
+# Dry run to see what would change
+bump2version --dry-run patch
+```
+
+### Version Files
+
+The version is automatically synchronized across these files:
+- `pyproject.toml` - `version = "0.0.1"`
+- `glping/__init__.py` - `__version__ = "0.0.1"`
+
+### Release Process
+
+1. **Automatic Releases**: Push to `main` branch triggers automatic release
+2. **Release Artifacts**: Each release includes:
+   - PyPI package
+   - Linux binary
+   - Windows binary
+   - macOS binary
+3. **Git Tags**: Each release creates a tag in format `v{version}`
+
+### CI/CD Requirements
+
+For the CI/CD pipeline to work correctly, ensure:
+1. **Personal Access Token (PAT)** is configured in repository secrets
+2. Token has `repo` and `workflow` scopes
+3. Token is named `PAT` in repository secrets
+
+See [SETUP_PAT.md](.github/SETUP_PAT.md) for detailed setup instructions.
 
 ## Submitting Changes
 
