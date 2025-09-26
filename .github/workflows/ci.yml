@@ -147,9 +147,9 @@ jobs:
             binary_ext: ''
 
     env:
-      VENV_PY: ${{ runner.os == 'Windows' && 'venv\\Scripts\\python' || 'venv/bin/python' }}
-      VENV_PIP: ${{ runner.os == 'Windows' && 'venv\\Scripts\\pip' || 'venv/bin/pip' }}
-      VENV_PYINSTALLER: ${{ runner.os == 'Windows' && 'venv\\Scripts\\pyinstaller' || 'venv/bin/pyinstaller' }}
+      VENV_PY: ${{ runner.os == 'Windows' && 'venv\\Scripts\\python.exe' || 'venv/bin/python' }}
+      VENV_PIP: ${{ runner.os == 'Windows' && 'venv\\Scripts\\pip.exe' || 'venv/bin/pip' }}
+      VENV_PYINSTALLER: ${{ runner.os == 'Windows' && 'venv\\Scripts\\pyinstaller.exe' || 'venv/bin/pyinstaller' }}
 
     steps:
     - name: Checkout code
