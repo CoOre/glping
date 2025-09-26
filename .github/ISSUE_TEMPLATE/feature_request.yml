@@ -1,0 +1,73 @@
+name: Feature Request
+description: Предложить новую функцию для GitLab Ping
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за предложение новой функции! Пожалуйста, заполните форму ниже.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Краткое описание
+      description: Краткое описание предлагаемой функции
+      placeholder: Опишите, какую функцию вы хотите добавить
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Проблема
+      description: Какую проблему решает эта функция?
+      placeholder: Опишите проблему, которую вы пытаетесь решить
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+      description: Как вы предлагаете решить эту проблему?
+      placeholder: Опишите, как должна работать новая функция
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативы
+      description: Какие альтернативы вы рассматривали?
+      placeholder: Опишите другие подходы к решению этой проблемы
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Приоритет
+      description: Насколько важна эта функция для вас?
+      options:
+        - Низкий (nice to have)
+        - Средний (полезно, но не критично)
+        - Высокий (критично для моей работы)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Дополнительная информация
+      description: Любая дополнительная информация или контекст
+      placeholder: Примеры использования, скриншоты, ссылки и т.д.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Проверка
+      description: Пожалуйста, подтвердите следующее
+      options:
+        - label: Я искал существующие issues и feature requests перед созданием нового
+          required: true
+        - label: Я готов помочь с реализацией этой функции
+          required: false
