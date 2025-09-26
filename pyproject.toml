@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "glping"
-version = "0.0.2"
+version = "0.0.3"
 description = "CLI-утилита для отслеживания событий в GitLab"
 readme = "README.md"
 requires-python = ">=3.9"
