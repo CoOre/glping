@@ -160,12 +160,12 @@ jobs:
       run: |
         python -m venv venv
         if [ "${{ runner.os }}" = "Windows" ]; then
-          ./venv/Scripts/pip.exe install --upgrade pip
-          ./venv/Scripts/pip.exe install -e ".[dev]"
+          ./venv/Scripts/python.exe -m pip install --upgrade pip
+          ./venv/Scripts/python.exe -m pip install -e ".[dev]"
           ./venv/Scripts/pyinstaller.exe --version
         else
-          ./venv/bin/pip install --upgrade pip
-          ./venv/bin/pip install -e ".[dev]"
+          ./venv/bin/python -m pip install --upgrade pip
+          ./venv/bin/python -m pip install -e ".[dev]"
           ./venv/bin/pyinstaller --version
         fi
 
