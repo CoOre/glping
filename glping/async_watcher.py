@@ -22,90 +22,84 @@ class AsyncGitLabWatcher:
         self._semaphore = asyncio.Semaphore(10)  # Ограничение одновременных запросов
 
     async def check_projects(self, verbose: bool = False):
-        """Проверить все проекты на наличие новых событий с оптимизацией по last_activity_at"""
+        """Проверить проекты на наличие новых событий с серверной фильтрацией по активности"""
         if verbose:
             print(f"[{datetime.now().isoformat()}] Проверка новых событий...")
 
-        # Получаем проекты с полем last_activity_at
-        projects = await self.api.get_projects(
-            **self.config.get_project_filter(),
-            fields=[
-                "id",
-                "name",
-                "name_with_namespace",
-                "path_with_namespace",
-                "last_activity_at",
-            ],
-        )
-
-        if verbose:
-            print(f"Найдено {len(projects)} проектов для проверки")
-
-        # Фильтруем проекты по последней активности
+        # Получаем дату последней проверки для фильтрации
         last_checked = self.cache.get_last_checked()
+        
+        # Если есть дата последней проверки, используем серверную фильтрацию
         if last_checked:
-            last_checked_dt = datetime.fromisoformat(
-                last_checked.replace("Z", "+00:00")
-            )
-
-            # Фильтруем проекты, которые были активны после последней проверки
-            active_projects = []
-            skipped_projects = 0
-            cache_hits = 0
-
-            for project in projects:
-                project_id = project["id"]
-                last_activity = project.get("last_activity_at")
-
-                # Обновляем кеш активности проектов
-                if last_activity:
-                    await self.cache.set_project_activity_async(
-                        project_id, last_activity
-                    )
-
-                # Проверяем, был ли проект активен после последней проверки
-                needs_check = False
-
-                if last_activity:
-                    activity_dt = datetime.fromisoformat(
-                        last_activity.replace("Z", "+00:00")
-                    )
-                    if activity_dt > last_checked_dt:
-                        needs_check = True
-                    else:
-                        skipped_projects += 1
-                else:
-                    # Если нет информации об активности в API, проверяем кеш
-                    cached_activity = self.cache.get_project_activity(project_id)
-                    if cached_activity:
-                        cache_hits += 1
-                        try:
-                            cached_dt = datetime.fromisoformat(
-                                cached_activity.replace("Z", "+00:00")
-                            )
-                            if cached_dt > last_checked_dt:
-                                needs_check = True
-                            else:
-                                skipped_projects += 1
-                        except (ValueError, TypeError):
-                            # Если кеш поврежден, проверяем проект
-                            needs_check = True
-                    else:
-                        # Если нет информации нигде, проверяем на всякий случай
-                        needs_check = True
-
-                if needs_check:
-                    active_projects.append(project)
-
             if verbose:
-                print(f"Пропущено {skipped_projects} неактивных проектов")
-                if cache_hits > 0:
-                    print(
-                        f"Использовано кэшированных данных активности: {cache_hits} проектов"
-                    )
-                print(f"Проверяется {len(active_projects)} активных проектов")
+                last_checked_dt = datetime.fromisoformat(
+                    last_checked.replace("Z", "+00:00")
+                ).strftime("%Y-%m-%d %H:%M:%S")
+                print(f"🔍 Фильтрация проектов с активностью после: {last_checked_dt}")
+            
+            # Получаем только активные проекты с сервера
+            projects = await self.api.get_projects(
+                **self.config.get_project_filter(),
+                fields=[
+                    "id",
+                    "name",
+                    "name_with_namespace", 
+                    "path_with_namespace",
+                    "last_activity_at",
+                ],
+                last_activity_after=last_checked,
+            )
+            
+            if verbose:
+                print(f"📊 Найдено {len(projects)} активных проектов (серверная фильтрация)")
+        else:
+            # Первый запуск - получаем все проекты
+            if verbose:
+                print("🔍 Первый запуск, получаем все проекты")
+            
+            projects = await self.api.get_projects(
+                **self.config.get_project_filter(),
+                fields=[
+                    "id",
+                    "name",
+                    "name_with_namespace",
+                    "path_with_namespace", 
+                    "last_activity_at",
+                ],
+            )
+            
+            if verbose:
+                print(f"📊 Найдено {len(projects)} проектов для первоначальной проверки")
 
-            projects = active_projects
+        # Обновляем кеш активности проектов и дополнительно фильтруем при необходимости
+        filtered_projects = []
+        for project in projects:
+            project_id = project["id"]
+            last_activity = project.get("last_activity_at")
+            
+            # Обновляем кеш активности
+            if last_activity:
+                await self.cache.set_project_activity_async(project_id, last_activity)
+            
+            # Дополнительная проверка на случай, если серверная фильтрация не сработала
+            if last_checked and last_activity:
+                try:
+                    activity_dt = datetime.fromisoformat(last_activity.replace("Z", "+00:00"))
+                    last_checked_dt = datetime.fromisoformat(last_checked.replace("Z", "+00:00"))
+                    if activity_dt > last_checked_dt:
+                        filtered_projects.append(project)
+                except (ValueError, TypeError):
+                    # Если проблемы с датами, включаем проект
+                    filtered_projects.append(project)
+            else:
+                # Если нет даты последней проверки или активности, включаем проект
+                filtered_projects.append(project)
+
+        # Обновляем список проектов для проверки
+        projects = filtered_projects
+        
+        if verbose and last_checked:
+            print(f"✅ Отфильтровано {len(projects)} проектов для проверки событий")
 
         # Создаем задачи для параллельной проверки проектов
         tasks = []

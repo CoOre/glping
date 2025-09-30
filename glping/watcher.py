@@ -20,15 +20,40 @@ class GitLabWatcher:
         self._project_paths_cache = {}  # Кэш путей проектов
 
     def check_projects(self, verbose: bool = False):
-        """Проверить все проекты на наличие новых событий"""
+        """Проверить проекты на наличие новых событий с серверной фильтрацией по активности"""
         if verbose:
             print(f"[{datetime.now().isoformat()}] Проверка новых событий...")
 
-        projects = self.api.get_projects(**self.config.get_project_filter())
+        # Получаем дату последней проверки для фильтрации
+        last_checked = self.cache.get_last_checked()
+        
+        # Если есть дата последней проверки, используем серверную фильтрацию
+        if last_checked:
+            if verbose:
+                last_checked_dt = datetime.fromisoformat(
+                    last_checked.replace("Z", "+00:00")
+                ).strftime("%Y-%m-%d %H:%M:%S")
+                print(f"🔍 Фильтрация проектов с активностью после: {last_checked_dt}")
+            
+            # Получаем только активные проекты с сервера
+            projects = self.api.get_projects(
+                **self.config.get_project_filter(),
+                last_activity_after=last_checked,
+            )
+            
+            if verbose:
+                print(f"📊 Найдено {len(projects)} активных проектов (серверная фильтрация)")
+        else:
+            # Первый запуск - получаем все проекты
+            if verbose:
+                print("🔍 Первый запуск, получаем все проекты")
+            
+            projects = self.api.get_projects(**self.config.get_project_filter())
+            
+            if verbose:
+                print(f"📊 Найдено {len(projects)} проектов для первоначальной проверки")
 
-        if verbose:
-            print(f"Найдено {len(projects)} проектов для проверки")
-
+        # Проверяем события для отфильтрованных проектов
         for project in projects:
             self._check_project_events(project, verbose)
 

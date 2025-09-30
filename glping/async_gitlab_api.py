@@ -64,8 +64,9 @@ class AsyncGitLabAPI:
         membership: bool = True,
         project_id: Optional[int] = None,
         fields: Optional[List[str]] = None,
+        last_activity_after: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Получить список проектов с оптимизацией полей"""
+        """Получить список проектов с оптимизацией полей и фильтрацией по активности"""
         if project_id:
             endpoint = f"projects/{project_id}"
             projects = await self._make_request("GET", endpoint)
@@ -84,6 +85,9 @@ class AsyncGitLabAPI:
 
         if fields:
             params["fields"] = ",".join(fields)
+            
+        if last_activity_after:
+            params["last_activity_after"] = last_activity_after
 
         projects = []
         page = 1

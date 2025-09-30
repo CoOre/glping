@@ -13,14 +13,19 @@ class GitLabAPI:
         self.gl.auth()
 
     def get_projects(
-        self, membership: bool = True, project_id: Optional[int] = None
+        self, membership: bool = True, project_id: Optional[int] = None, last_activity_after: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Получить список проектов"""
+        """Получить список проектов с опциональной фильтрацией по активности"""
         if project_id:
             project = self.gl.projects.get(project_id)
             return [project.asdict()]
 
-        projects = self.gl.projects.list(membership=membership, get_all=True)
+        # Добавляем фильтрацию по дате последней активности если указана
+        kwargs = {"membership": membership, "get_all": True}
+        if last_activity_after:
+            kwargs["last_activity_after"] = last_activity_after
+            
+        projects = self.gl.projects.list(**kwargs)
         return [project.asdict() for project in projects]
 
     def get_project_events(
