@@ -1,3 +1,4 @@
+import os
 import platform
 import subprocess
 import uuid
@@ -11,6 +12,47 @@ class Notifier:
     def __init__(self):
         """Инициализация системы уведомлений"""
         self.system = platform.system()
+        self.is_cron = self._detect_cron_environment()
+        
+    def _detect_cron_environment(self) -> bool:
+        """Определяет, запущен ли скрипт в crontab"""
+        # Проверяем признаки crontab окружения
+        cron_indicators = []
+        
+        # Отсутствие интерактивного терминала (сильный индикатор)
+        if not os.isatty(0):
+            cron_indicators.append('no_tty')
+        
+        # Специфичные для crontab переменные (очень сильные индикаторы)
+        if any(key in os.environ for key in ['CRON_TZ', 'MAILTO']):
+            cron_indicators.append('cron_vars')
+        
+        # Минимальный набор переменных окружения (только для Linux)
+        if self.system == "Linux" and len(os.environ) < 15:
+            cron_indicators.append('minimal_env')
+        
+        # Отсутствие DISPLAY переменной (только для Linux, где она обычно есть)
+        if self.system == "Linux" and not os.environ.get('DISPLAY'):
+            cron_indicators.append('no_display')
+        
+        # macOS специфические проверки
+        if self.system == "Darwin":
+            # В macOS cron обычно имеет очень ограниченный набор переменных
+            if len(os.environ) < 8:
+                cron_indicators.append('macos_minimal_env')
+            # Отсутствие типичных GUI переменных в macOS
+            gui_vars = ['TERM_PROGRAM', 'TERM_PROGRAM_VERSION', 'VSCODE_PID', 'ITERM_SESSION_ID']
+            if not any(var in os.environ for var in gui_vars):
+                cron_indicators.append('no_gui_vars')
+        
+        # Если есть хотя бы один сильный индикатор или 2 слабых, считаем что это cron
+        strong_indicators = ['cron_vars']
+        weak_indicators = ['no_tty', 'minimal_env', 'no_display', 'macos_minimal_env', 'no_gui_vars']
+        
+        has_strong = any(ind in strong_indicators for ind in cron_indicators)
+        weak_count = sum(1 for ind in cron_indicators if ind in weak_indicators)
+        
+        return has_strong or weak_count >= 2
 
     def send_notification(
         self,
@@ -20,6 +62,10 @@ class Notifier:
         icon_url: Optional[str] = None,
     ):
         """Отправить уведомление"""
+        # Логируем информацию об окружении для отладки
+        if self.is_cron:
+            print(f"🔄 Обнаружено crontab окружение, используем оптимизированные уведомления")
+        
         success = False
 
         # Пробуем разные методы в зависимости от ОС
@@ -60,14 +106,19 @@ class Notifier:
                 # Используем уникальную группу для каждого уведомления чтобы избежать замены
                 "-group",
                 f"glping-{notification_id[:8]}",  # Уникальная группа для каждого уведомления
-                "-activate",
-                "com.apple.Terminal",  # Активировать терминал при клике
                 "-timeout",
                 "10",  # Увеличиваем время отображения
             ]
 
-            # Добавляем уникальный идентификатор
-            cmd.extend(["-subtitle", f"ID: {notification_id[:8]}"])
+            # В crontab окружении не активируем терминал при клике
+            if not self.is_cron:
+                cmd.extend(["-activate", "com.apple.Terminal"])
+            else:
+                # В cron используем Finder вместо терминала
+                cmd.extend(["-activate", "com.apple.Finder"])
+
+            # Убираем ID для чистых уведомлений
+            # cmd.extend(["-subtitle", f"ID: {notification_id[:8]}"])
 
             # Добавляем иконку если указана
             if icon_url:
@@ -129,6 +180,21 @@ class Notifier:
                 f"string:desktop-entry:{notification_id}",
             ]
 
+            # В crontab окружении добавляем DISPLAY переменную если отсутствует
+            if self.is_cron and not os.environ.get('DISPLAY'):
+                # Пытаемся определить DISPLAY автоматически
+                possible_displays = [':0', ':1', ':0.0', ':1.0']
+                for display in possible_displays:
+                    try:
+                        test_cmd = ['xset', 'q']
+                        env = os.environ.copy()
+                        env['DISPLAY'] = display
+                        subprocess.run(test_cmd, env=env, capture_output=True, timeout=1)
+                        cmd.extend(['--', f'DISPLAY={display}'])
+                        break
+                    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                        continue
+
             # Добавляем иконку если указана
             if icon_url:
                 cmd.extend(["-i", icon_url])
@@ -136,7 +202,25 @@ class Notifier:
             if url:
                 cmd.extend(["-h", f"string:x-dunst-stack-tag:{notification_id}"])
 
-            subprocess.run(cmd, check=True)
+            # В crontab окружении устанавливаем переменные окружения
+            env = os.environ.copy()
+            if self.is_cron:
+                # Устанавливаем базовые переменные для GUI приложений
+                if not env.get('DBUS_SESSION_BUS_ADDRESS'):
+                    # Пытаемся найти DBUS сессию
+                    try:
+                        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
+                        for line in result.stdout.split('\n'):
+                            if 'dbus-daemon' in line and '--session' in line:
+                                parts = line.split()
+                                for i, part in enumerate(parts):
+                                    if part.startswith('DBUS_SESSION_BUS_ADDRESS='):
+                                        env['DBUS_SESSION_BUS_ADDRESS'] = part.split('=', 1)[1]
+                                        break
+                    except Exception:
+                        pass
+
+            subprocess.run(cmd, check=True, env=env)
             return True
         except Exception as e:
             print(f"Ошибка notify-send: {e}")

@@ -219,7 +219,7 @@ class GitLabWatcher:
         )
 
         self.notifier.send_notification(
-            title=f"Событие GitLab - {project_name}",
+            title=project_name,
             message=description,
             url=url,
             icon_url=icon_url,

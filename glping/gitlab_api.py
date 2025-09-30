@@ -64,12 +64,33 @@ class GitLabAPI:
             print(f"Ошибка подключения: {e}")
             return False
 
+    def _format_event_date(self, event: Dict[str, Any]) -> str:
+        """Форматирует дату события"""
+        from datetime import datetime
+        
+        created_at = event.get("created_at", "")
+        if created_at:
+            try:
+                # Преобразуем ISO дату в читаемый формат
+                if created_at.endswith('Z'):
+                    event_dt = datetime.fromisoformat(created_at[:-1] + '+00:00')
+                else:
+                    event_dt = datetime.fromisoformat(created_at)
+                # Форматируем как ДД.ММ.ЧЧ:ММ
+                return event_dt.strftime("%d.%m.%H:%M")
+            except:
+                pass
+        return ""
+
     def get_event_description(self, event: Dict[str, Any]) -> str:
         """Получить описание события на русском языке"""
         event_type = event.get("target_type", "Неизвестно")
         action_name = event.get("action_name", "неизвестно")
         author_name = event.get("author", {}).get("name", "Неизвестный")
         push_data = event.get("push_data", {})
+        
+        # Получаем отформатированную дату
+        event_date = self._format_event_date(event)
 
         # Обработка push событий
         if action_name in ["pushed", "pushed new", "pushed to"] and push_data:
@@ -80,39 +101,60 @@ class GitLabAPI:
             if ref.startswith("refs/heads/"):
                 branch = ref.replace("refs/heads/", "")
                 if action == "removed":
-                    return f"Ветка {branch} удалена {author_name}"
+                    description = f"Ветка {branch} удалена {author_name}"
                 elif commit_count > 0:
-                    return f"Новые коммиты в ветку {branch} от {author_name} ({commit_count} коммитов)"
+                    description = f"Новые коммиты в ветку {branch} от {author_name} ({commit_count} коммитов)"
                 else:
-                    return f"Push в ветку {branch} от {author_name}"
+                    description = f"Push в ветку {branch} от {author_name}"
             else:
-                return f"Новые коммиты от {author_name}"
+                description = f"Новые коммиты от {author_name}"
+            
+            return f"{description} {event_date}".strip()
 
         if event_type == "MergeRequest":
             if action_name == "opened":
-                return f"Новый Merge Request от {author_name}"
+                description = f"Новый Merge Request от {author_name}"
             elif action_name == "updated":
-                return f"Merge Request обновлен {author_name}"
+                description = f"Merge Request обновлен {author_name}"
             elif action_name == "closed":
-                return f"Merge Request закрыт {author_name}"
+                description = f"Merge Request закрыт {author_name}"
             elif action_name == "merged":
-                return f"Merge Request смержен {author_name}"
+                description = f"Merge Request смержен {author_name}"
             elif action_name == "approved":
-                return f"Merge Request одобрен {author_name}"
+                description = f"Merge Request одобрен {author_name}"
+            else:
+                description = f"Merge Request {action_name} от {author_name}"
+            
+            return f"{description} {event_date}".strip()
 
         elif event_type == "Issue":
             if action_name == "opened":
-                return f"Новая задача от {author_name}"
+                description = f"Новая задача от {author_name}"
             elif action_name == "closed":
-                return f"Задача закрыта {author_name}"
+                description = f"Задача закрыта {author_name}"
             elif action_name == "reopened":
-                return f"Задача переоткрыта {author_name}"
+                description = f"Задача переоткрыта {author_name}"
+            else:
+                description = f"Задача {action_name} от {author_name}"
+            
+            return f"{description} {event_date}".strip()
 
         elif event_type == "Note":
-            return f"Новый комментарий от {author_name}"
+            # Получаем текст комментария
+            note_body = event.get("note", {}).get("body", "")
+            if note_body:
+                # Обрезаем длинные комментарии
+                if len(note_body) > 100:
+                    note_body = note_body[:100] + "..."
+                description = f"Новый комментарий от {author_name}:\n\"{note_body}\""
+            else:
+                description = f"Новый комментарий от {author_name}"
+            
+            return f"{description} {event_date}".strip()
 
         elif event_type == "Commit":
-            return f"Новый коммит от {author_name}"
+            description = f"Новый коммит от {author_name}"
+            return f"{description} {event_date}".strip()
 
         elif event_type == "Pipeline":
             status = event.get("data", {}).get("status", "неизвестно")
@@ -124,6 +166,8 @@ class GitLabAPI:
                 "canceled": "отменен",
             }
             status_ru = status_map.get(status, status)
-            return f"Pipeline {status_ru} от {author_name}"
+            description = f"Pipeline {status_ru} от {author_name}"
+            return f"{description} {event_date}".strip()
 
-        return f"{event_type} {action_name} от {author_name}"
+        description = f"{event_type} {action_name} от {author_name}"
+        return f"{description} {event_date}".strip()

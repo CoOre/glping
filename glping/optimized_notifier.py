@@ -72,7 +72,7 @@ class OptimizedNotifier:
         # Группируем по проектам
         project_groups = {}
         for notif in notifications:
-            project_name = notif["title"].replace("Событие GitLab - ", "")
+            project_name = notif["title"]
             if project_name not in project_groups:
                 project_groups[project_name] = []
             project_groups[project_name].append(notif)
