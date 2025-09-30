@@ -45,18 +45,24 @@ class GitLabWatcher:
             print(f"  Проверка проекта: {project_name}")
 
         last_event_id = self.cache.get_last_event_id(project_id)
-        installation_date = self.cache.get_installation_date()
+        last_checked = self.cache.get_last_checked()
 
         try:
             if last_event_id is None:
-                # Для первого запуска проекта всегда используем дату установки
+                # Для первого запуска проекта всегда используем дату последней проверки
                 # Пробуем использовать after параметр с правильным форматом
                 try:
-                    # GitLab API ожидает дату в формате YYYY-MM-DD
-                    install_dt = datetime.fromisoformat(
-                        installation_date.replace("Z", "+00:00")
-                    )
-                    after_date = install_dt.strftime("%Y-%m-%d")
+                    # Правильно парсим ISO дату с учетом различных форматов
+                    if last_checked.endswith('Z'):
+                        last_checked_dt = datetime.fromisoformat(last_checked[:-1] + '+00:00')
+                    else:
+                        last_checked_dt = datetime.fromisoformat(last_checked)
+                    
+                    # Убеждаемся что дата в UTC
+                    if last_checked_dt.tzinfo is None:
+                        last_checked_dt = last_checked_dt.replace(tzinfo=timezone.utc)
+                    
+                    after_date = last_checked_dt.strftime("%Y-%m-%d")
                     events = self.api.get_project_events(project_id, after=after_date)
                     if verbose:
                         print(
@@ -79,10 +85,21 @@ class GitLabWatcher:
                         f"    Проверка всех событий (последний известный ID: {last_event_id})"
                     )
 
-            # Фильтруем события по дате установки
-            installation_dt = datetime.fromisoformat(
-                installation_date.replace("Z", "+00:00")
-            )
+            # Фильтруем события по дате последней проверки
+            try:
+                if last_checked.endswith('Z'):
+                    last_checked_dt = datetime.fromisoformat(last_checked[:-1] + '+00:00')
+                else:
+                    last_checked_dt = datetime.fromisoformat(last_checked)
+                
+                if last_checked_dt.tzinfo is None:
+                    last_checked_dt = last_checked_dt.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                # Если не удалось распарсить дату проверки, используем начало текущих суток
+                last_checked_dt = datetime.now(timezone.utc).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+            
             filtered_events = []
             skipped_old_events = 0
 
@@ -90,32 +107,33 @@ class GitLabWatcher:
                 event_id = event.get("id")
                 created_at = event.get("created_at", "")
 
+                # Сначала проверяем дату события
+                event_dt = None
                 if created_at:
                     try:
-                        event_dt = datetime.fromisoformat(
-                            created_at.replace("Z", "+00:00")
-                        )
-                        if event_dt >= installation_dt:
-                            if event_id and (
-                                last_event_id is None or event_id > last_event_id
-                            ):
-                                filtered_events.append(event)
+                        if created_at.endswith('Z'):
+                            event_dt = datetime.fromisoformat(created_at[:-1] + '+00:00')
                         else:
-                            skipped_old_events += 1
+                            event_dt = datetime.fromisoformat(created_at)
+                        
+                        if event_dt.tzinfo is None:
+                            event_dt = event_dt.replace(tzinfo=timezone.utc)
                     except (ValueError, TypeError):
-                        # Если не удалось распарсить дату, включаем событие
-                        if event_id and (
-                            last_event_id is None or event_id > last_event_id
-                        ):
-                            filtered_events.append(event)
-                else:
-                    # Если нет даты, включаем событие
+                        event_dt = None
+
+                # Проверяем что событие новее даты последней проверки
+                is_recent = event_dt is None or event_dt > last_checked_dt
+                
+                if is_recent:
+                    # Для недавних событий проверяем ID
                     if event_id and (last_event_id is None or event_id > last_event_id):
                         filtered_events.append(event)
+                else:
+                    skipped_old_events += 1
 
             if verbose and skipped_old_events > 0:
                 print(
-                    f"    Пропущено {skipped_old_events} старых событий (до установки)"
+                    f"    Пропущено {skipped_old_events} старых событий (до последней проверки)"
                 )
 
             if filtered_events:
@@ -237,13 +255,15 @@ class GitLabWatcher:
         if target_type == "MergeRequest":
             if target_iid:
                 return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{target_iid}"
-            elif target_id:
-                return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{target_id}"
+            else:
+                # Если нет публичного IID, не генерируем URL для внутреннего ID
+                return f"{self.config.gitlab_url}/{project_path}/-/merge_requests"
         elif target_type == "Issue":
             if target_iid:
                 return f"{self.config.gitlab_url}/{project_path}/-/issues/{target_iid}"
-            elif target_id:
-                return f"{self.config.gitlab_url}/{project_path}/-/issues/{target_id}"
+            else:
+                # Если нет публичного IID, не генерируем URL для внутреннего ID
+                return f"{self.config.gitlab_url}/{project_path}/-/issues"
         elif target_type == "Note" and target_id:
             # Получаем данные о комментируемом объекте из поля note
             note_data = event.get("note", {})

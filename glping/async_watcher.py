@@ -132,38 +132,19 @@ class AsyncGitLabWatcher:
                 print(f"  Проверка проекта: {project_name}")
 
             last_event_id = self.cache.get_last_event_id(project_id)
-            installation_date = self.cache.get_installation_date()
+            last_checked = self.cache.get_last_checked()
 
             try:
                 if last_event_id is None:
-                    if self.cache.is_empty():
-                        # Первый запуск - используем дату установки как фильтр
-                        events = await self.api.get_project_events(
-                            project_id, after=installation_date
-                        )
-                        if verbose:
-                            install_dt = datetime.fromisoformat(
-                                installation_date.replace("Z", "+00:00")
-                            ).strftime("%Y-%m-%d %H:%M:%S")
-                            print(f"    Первый запуск, проверка событий с {install_dt}")
-                    else:
-                        last_checked = self.cache.get_last_checked()
-                        if last_checked:
-                            events = await self.api.get_project_events(
-                                project_id, after=last_checked
-                            )
-                            if verbose:
-                                print(f"    Проверка событий с {last_checked}")
-                        else:
-                            # Запасной вариант - используем дату установки
-                            events = await self.api.get_project_events(
-                                project_id, after=installation_date
-                            )
-                            if verbose:
-                                install_dt = datetime.fromisoformat(
-                                    installation_date.replace("Z", "+00:00")
-                                ).strftime("%Y-%m-%d %H:%M:%S")
-                                print(f"    Используется дата установки: {install_dt}")
+                    # Всегда используем дату последней проверки как фильтр
+                    events = await self.api.get_project_events(
+                        project_id, after=last_checked
+                    )
+                    if verbose:
+                        last_checked_dt = datetime.fromisoformat(
+                            last_checked.replace("Z", "+00:00")
+                        ).strftime("%Y-%m-%d %H:%M:%S")
+                        print(f"    Первый запуск, проверка событий с {last_checked_dt}")
                 else:
                     events = await self.api.get_project_events(project_id)
                     if verbose:
@@ -171,9 +152,9 @@ class AsyncGitLabWatcher:
                             f"    Проверка всех событий (последний известный ID: {last_event_id})"
                         )
 
-                # Фильтруем события по дате установки
-                installation_dt = datetime.fromisoformat(
-                    installation_date.replace("Z", "+00:00")
+                # Фильтруем события по дате последней проверки
+                last_checked_dt = datetime.fromisoformat(
+                    last_checked.replace("Z", "+00:00")
                 )
                 filtered_events = []
                 skipped_old_events = 0
@@ -187,7 +168,7 @@ class AsyncGitLabWatcher:
                             event_dt = datetime.fromisoformat(
                                 created_at.replace("Z", "+00:00")
                             )
-                            if event_dt >= installation_dt:
+                            if event_dt > last_checked_dt:
                                 if event_id and (
                                     last_event_id is None or event_id > last_event_id
                                 ):
@@ -209,7 +190,7 @@ class AsyncGitLabWatcher:
 
                 if verbose and skipped_old_events > 0:
                     print(
-                        f"    Пропущено {skipped_old_events} старых событий (до установки)"
+                        f"    Пропущено {skipped_old_events} старых событий (до последней проверки)"
                     )
 
                 if filtered_events:
