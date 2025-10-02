@@ -2,22 +2,23 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from .base_watcher import BaseWatcher
 from .cache import Cache
 from .config import Config
 from .gitlab_api import GitLabAPI
 from .notifier import Notifier
+from .utils.url_utils import get_event_url
 
 
-class GitLabWatcher:
-    """Основной класс для отслеживания событий GitLab"""
+class GitLabWatcher(BaseWatcher):
+    """Синхронный класс для отслеживания событий GitLab."""
 
     def __init__(self, config: Config):
-        """Инициализация наблюдателя"""
-        self.config = config
-        self.cache = Cache(config.cache_file)
+        """Инициализация наблюдателя."""
+        super().__init__(config)
         self.api = GitLabAPI(config.gitlab_url, config.gitlab_token)
         self.notifier = Notifier()
-        self._project_paths_cache = {}  # Кэш путей проектов
+        # _project_paths уже инициализирован в базовом классе
 
     def check_projects(self, verbose: bool = False):
         """Проверить проекты на наличие новых событий с серверной фильтрацией по активности"""
@@ -196,7 +197,7 @@ class GitLabWatcher:
         console_message = f"[{timestamp}] ИНФО: [Проект: {project_name}] {description}"
         print(console_message)
 
-        url = self._get_event_url(event, project_id, verbose)
+        url = self.get_event_url(event, project_id)
 
         # Отладочная информация для URL
         target_type = event.get("target_type")
@@ -225,100 +226,29 @@ class GitLabWatcher:
             icon_url=icon_url,
         )
 
-    def _get_project_path(self, project_id: int) -> Optional[str]:
-        """Получить путь проекта по его ID"""
-        # Проверяем кэш
-        if project_id in self._project_paths_cache:
-            return self._project_paths_cache[project_id]
+    def _get_project_path(self, project_id: int) -> str:
+        """Получить путь проекта по его ID."""
+        # Сначала используем базовый метод
+        path = super()._get_project_path(project_id)
+        if path:
+            return path
 
         try:
-            # Получаем данные проекта
+            # Получаем данные проекта из API
             projects = self.api.get_projects(project_id=project_id)
             if projects:
                 project = projects[0]
                 path_with_namespace = project.get("path_with_namespace")
                 if path_with_namespace:
                     # Сохраняем в кэш
-                    self._project_paths_cache[project_id] = path_with_namespace
+                    self._cache_project_path(project_id, path_with_namespace)
                     return path_with_namespace
         except Exception as e:
             print(f"Ошибка получения пути проекта {project_id}: {e}")
 
-        return None
+        return ""
 
-    def _get_event_url(
-        self, event: Dict[str, Any], project_id: int, verbose: bool = False
-    ) -> str:
-        """Получить URL для события"""
-        target_type = event.get("target_type")
-        target_id = event.get("target_id")
-        target_iid = event.get(
-            "target_iid"
-        )  # Используем публичный IID вместо внутреннего ID
-        action_name = event.get("action_name")
-        push_data = event.get("push_data", {})
-
-        # Получаем путь проекта вместо ID
-        project_path = self._get_project_path(project_id)
-        if not project_path:
-            # Запасной вариант с ID если путь не найден
-            project_path = str(project_id)
-
-        # Обработка push событий
-        if action_name in ["pushed", "pushed new", "pushed to"] and push_data:
-            commit_from = push_data.get("commit_from")
-            commit_to = push_data.get("commit_to")
-            ref = push_data.get("ref")
-
-            if commit_to:
-                return f"{self.config.gitlab_url}/{project_path}/-/commit/{commit_to}"
-            elif ref and ref.startswith("refs/heads/"):
-                branch = ref.replace("refs/heads/", "")
-                return f"{self.config.gitlab_url}/{project_path}/-/tree/{branch}"
-
-        # Обработка стандартных событий
-        if target_type == "MergeRequest":
-            if target_iid:
-                return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{target_iid}"
-            else:
-                # Если нет публичного IID, не генерируем URL для внутреннего ID
-                return f"{self.config.gitlab_url}/{project_path}/-/merge_requests"
-        elif target_type == "Issue":
-            if target_iid:
-                return f"{self.config.gitlab_url}/{project_path}/-/issues/{target_iid}"
-            else:
-                # Если нет публичного IID, не генерируем URL для внутреннего ID
-                return f"{self.config.gitlab_url}/{project_path}/-/issues"
-        elif target_type in ["Note", "DiffNote"] and target_id:
-            # Получаем данные о комментируемом объекте из поля note
-            note_data = event.get("note", {})
-            noteable_type = note_data.get("noteable_type")
-            noteable_iid = note_data.get("noteable_iid")
-
-            # DiffNote и Note к MergeRequest
-            if noteable_type == "MergeRequest" and noteable_iid:
-                if target_type == "DiffNote":
-                    # Для DiffNote используем discussion_id если есть
-                    discussion_id = note_data.get("discussion_id")
-                    if discussion_id:
-                        return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
-                    else:
-                        return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
-                else:
-                    return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
-            elif noteable_type == "Issue" and noteable_iid:
-                return f"{self.config.gitlab_url}/{project_path}/-/issues/{noteable_iid}#note_{target_id}"
-            elif noteable_type == "Commit":
-                # Для комментариев к коммиту нужен commit_id
-                commit_id = note_data.get("commit_id")
-                if commit_id:
-                    return f"{self.config.gitlab_url}/{project_path}/-/commit/{commit_id}#note_{target_id}"
-        elif target_type == "Commit" and target_id:
-            return f"{self.config.gitlab_url}/{project_path}/-/commit/{target_id}"
-        elif target_type == "Pipeline" and target_id:
-            return f"{self.config.gitlab_url}/{project_path}/-/pipelines/{target_id}"
-
-        return f"{self.config.gitlab_url}/{project_path}"
+    # Метод _get_event_url удален, используем get_event_url из базового класса
 
     def run_once(self, verbose: bool = False):
         """Запустить однократную проверку"""

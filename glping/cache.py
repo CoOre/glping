@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 import fcntl
 import tempfile
 
@@ -221,6 +221,41 @@ class Cache:
         return not self.data["projects"]
 
     
+
+    def get_project_path(self, project_id: int) -> Optional[str]:
+        """Получить путь проекта из кеша"""
+        project_paths = self.data.get("project_paths", {})
+        return project_paths.get(str(project_id))
+
+    def save_project_path(self, project_id: int, path: str):
+        """Сохранить путь проекта в кеш"""
+        if "project_paths" not in self.data:
+            self.data["project_paths"] = {}
+        self.data["project_paths"][str(project_id)] = path
+        self._save_cache()
+
+    def save_project_event(self, project_id: int, event_id: Any):
+        """Сохранить событие проекта в кеш"""
+        if "projects" not in self.data:
+            self.data["projects"] = {}
+
+        project_id_str = str(project_id)
+        if project_id_str not in self.data["projects"]:
+            self.data["projects"][project_id_str] = {"events": []}
+
+        events = self.data["projects"][project_id_str]["events"]
+        if event_id not in events:
+            events.append(event_id)
+            # Ограничиваем количество сохраняемых событий
+            if len(events) > 100:
+                events[:] = events[-100:]
+            self._save_cache()
+
+    def get_project_events(self, project_id: int) -> Optional[List]:
+        """Получить список событий проекта из кеша"""
+        projects = self.data.get("projects", {})
+        project_data = projects.get(str(project_id), {})
+        return project_data.get("events", [])
 
     def get_project_activity(self, project_id: int) -> Optional[str]:
         """Получить время последней активности проекта из кеша"""

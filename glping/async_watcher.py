@@ -4,21 +4,21 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from .async_gitlab_api import AsyncGitLabAPI
+from .base_watcher import BaseWatcher
 from .cache import Cache
 from .config import Config
 from .notifier import Notifier
+from .utils.url_utils import get_event_url
 
 
-class AsyncGitLabWatcher:
-    """Асинхронный класс для отслеживания событий GitLab"""
+class AsyncGitLabWatcher(BaseWatcher):
+    """Асинхронный класс для отслеживания событий GitLab."""
 
     def __init__(self, config: Config):
-        """Инициализация наблюдателя"""
-        self.config = config
-        self.cache = Cache(config.cache_file)
+        """Инициализация наблюдателя."""
+        super().__init__(config)
         self.api = AsyncGitLabAPI(config.gitlab_url, config.gitlab_token)
         self.notifier = Notifier()
-        self._project_paths_cache = {}  # Кэш путей проектов
         self._semaphore = asyncio.Semaphore(10)  # Ограничение одновременных запросов
 
     async def check_projects(self, verbose: bool = False):
