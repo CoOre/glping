@@ -97,21 +97,36 @@ class GitLabAPI:
             ref = push_data.get("ref", "")
             commit_count = push_data.get("commit_count", 0)
             action = push_data.get("action", "")
+            commit_title = push_data.get("commit_title", "")
 
             if ref.startswith("refs/heads/"):
                 branch = ref.replace("refs/heads/", "")
                 if action == "removed":
                     description = f"Ветка {branch} удалена {author_name}"
                 elif commit_count > 0:
-                    description = f"Новые коммиты в ветку {branch} от {author_name} ({commit_count} коммитов)"
+                    if commit_count == 1:
+                        # Для одного коммита показываем полное сообщение
+                        description = f"Push в {branch} от {author_name}"
+                        if commit_title:
+                            description += f": {commit_title}"
+                    else:
+                        # Для нескольких коммитов показываем количество и первый
+                        description = f"Push в {branch} от {author_name} ({commit_count} коммитов)"
+                        if commit_title:
+                            description += f": {commit_title}"
                 else:
                     description = f"Push в ветку {branch} от {author_name}"
             else:
                 description = f"Новые коммиты от {author_name}"
+                if commit_title:
+                    description += f": {commit_title}"
             
             return f"{description} {event_date}".strip()
 
         if event_type == "MergeRequest":
+            # Получаем заголовок MR если доступен
+            target_title = event.get("target_title", "")
+
             if action_name == "opened":
                 description = f"Новый Merge Request от {author_name}"
             elif action_name == "updated":
@@ -124,10 +139,17 @@ class GitLabAPI:
                 description = f"Merge Request одобрен {author_name}"
             else:
                 description = f"Merge Request {action_name} от {author_name}"
-            
+
+            # Добавляем заголовок MR если есть
+            if target_title:
+                description += f": {target_title}"
+
             return f"{description} {event_date}".strip()
 
         elif event_type == "Issue":
+            # Получаем заголовок задачи если доступен
+            target_title = event.get("target_title", "")
+
             if action_name == "opened":
                 description = f"Новая задача от {author_name}"
             elif action_name == "closed":
@@ -136,20 +158,45 @@ class GitLabAPI:
                 description = f"Задача переоткрыта {author_name}"
             else:
                 description = f"Задача {action_name} от {author_name}"
-            
+
+            # Добавляем заголовок задачи если есть
+            if target_title:
+                description += f": {target_title}"
+
             return f"{description} {event_date}".strip()
 
-        elif event_type == "Note":
-            # Получаем текст комментария
-            note_body = event.get("note", {}).get("body", "")
-            if note_body:
-                # Обрезаем длинные комментарии
-                if len(note_body) > 100:
-                    note_body = note_body[:100] + "..."
-                description = f"Новый комментарий от {author_name}:\n\"{note_body}\""
+        elif event_type in ["Note", "DiffNote"]:
+            # Получаем текст комментария и информацию о том, к чему он относится
+            note_data = event.get("note", {})
+            note_body = note_data.get("body", "")
+            noteable_type = note_data.get("noteable_type", "")
+            noteable_iid = note_data.get("noteable_iid", "")
+
+            # DiffNote - это комментарий к коду в MR
+            if event_type == "DiffNote":
+                # Для DiffNote всегда указываем что это комментарий к коду
+                if noteable_type == "MergeRequest" and noteable_iid:
+                    context = f" к коду в MR #{noteable_iid}"
+                else:
+                    context = " к коду"
+                description = f"Комментарий{context} от {author_name}"
             else:
-                description = f"Новый комментарий от {author_name}"
-            
+                # Обычный Note
+                context = ""
+                if noteable_type == "MergeRequest" and noteable_iid:
+                    context = f" к MR #{noteable_iid}"
+                elif noteable_type == "Issue" and noteable_iid:
+                    context = f" к задаче #{noteable_iid}"
+                elif noteable_type == "Commit":
+                    context = " к коммиту"
+                description = f"Комментарий{context} от {author_name}"
+
+            if note_body:
+                # Увеличиваем лимит до 150 символов
+                if len(note_body) > 150:
+                    note_body = note_body[:150] + "..."
+                description += f": {note_body}"
+
             return f"{description} {event_date}".strip()
 
         elif event_type == "Commit":
@@ -157,7 +204,12 @@ class GitLabAPI:
             return f"{description} {event_date}".strip()
 
         elif event_type == "Pipeline":
-            status = event.get("data", {}).get("status", "неизвестно")
+            # Получаем данные о pipeline
+            pipeline_data = event.get("data", {})
+            status = pipeline_data.get("status", "неизвестно")
+            pipeline_id = event.get("target_id", "")
+            ref = pipeline_data.get("ref", "")
+
             status_map = {
                 "success": "успешно",
                 "failed": "с ошибкой",
@@ -166,7 +218,19 @@ class GitLabAPI:
                 "canceled": "отменен",
             }
             status_ru = status_map.get(status, status)
-            description = f"Pipeline {status_ru} от {author_name}"
+
+            # Формируем описание с номером pipeline
+            if pipeline_id:
+                description = f"Pipeline #{pipeline_id} {status_ru}"
+            else:
+                description = f"Pipeline {status_ru}"
+
+            # Добавляем ветку если есть
+            if ref:
+                description += f" для {ref}"
+
+            description += f" от {author_name}"
+
             return f"{description} {event_date}".strip()
 
         description = f"{event_type} {action_name} от {author_name}"

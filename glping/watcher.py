@@ -289,16 +289,30 @@ class GitLabWatcher:
             else:
                 # Если нет публичного IID, не генерируем URL для внутреннего ID
                 return f"{self.config.gitlab_url}/{project_path}/-/issues"
-        elif target_type == "Note" and target_id:
+        elif target_type in ["Note", "DiffNote"] and target_id:
             # Получаем данные о комментируемом объекте из поля note
             note_data = event.get("note", {})
             noteable_type = note_data.get("noteable_type")
             noteable_iid = note_data.get("noteable_iid")
 
+            # DiffNote и Note к MergeRequest
             if noteable_type == "MergeRequest" and noteable_iid:
-                return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
+                if target_type == "DiffNote":
+                    # Для DiffNote используем discussion_id если есть
+                    discussion_id = note_data.get("discussion_id")
+                    if discussion_id:
+                        return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
+                    else:
+                        return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
+                else:
+                    return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
             elif noteable_type == "Issue" and noteable_iid:
                 return f"{self.config.gitlab_url}/{project_path}/-/issues/{noteable_iid}#note_{target_id}"
+            elif noteable_type == "Commit":
+                # Для комментариев к коммиту нужен commit_id
+                commit_id = note_data.get("commit_id")
+                if commit_id:
+                    return f"{self.config.gitlab_url}/{project_path}/-/commit/{commit_id}#note_{target_id}"
         elif target_type == "Commit" and target_id:
             return f"{self.config.gitlab_url}/{project_path}/-/commit/{target_id}"
         elif target_type == "Pipeline" and target_id:
