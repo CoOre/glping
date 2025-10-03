@@ -31,26 +31,44 @@ python -m glping --dev
 ```
 glping/
 ├── glping/                    # Main application package
-│   ├── __init__.py           # Package initialization
+│   ├── __init__.py           # Package initialization and version
 │   ├── main.py               # Entry point and CLI
-│   ├── gitlab_client.py      # GitLab API client
-│   ├── event_processor.py    # Event processing logic
+│   ├── base_gitlab_api.py    # Base GitLab API client
+│   ├── base_watcher.py       # Base event watcher
+│   ├── gitlab_api.py         # Synchronous GitLab API client
+│   ├── async_gitlab_api.py   # Asynchronous GitLab API client
+│   ├── watcher.py            # Synchronous event watcher
+│   ├── async_watcher.py      # Asynchronous event watcher
 │   ├── notifier.py           # Desktop notifications
+│   ├── optimized_notifier.py # Optimized notification system
 │   ├── cache.py              # Cache management
 │   ├── config.py             # Configuration management
-│   ├── web/                  # Web dashboard
-│   │   ├── dashboard.py      # Web server and SSE
-│   │   ├── static/           # Static assets
-│   │   └── templates/        # Jinja2 templates
+│   ├── lock.py               # File locking utilities
+│   ├── assets/               # Application assets
+│   │   ├── glping-icon.png   # Main icon
+│   │   ├── glping-icon-128.png # 128px icon
+│   │   └── glping-icon-256.png # 256px icon
 │   └── utils/                # Utility functions
+│       ├── __init__.py       # Utilities package initialization
+│       ├── date_utils.py     # Date and time utilities
+│       ├── event_utils.py    # Event processing utilities
+│       └── url_utils.py      # URL handling utilities
 ├── tests/                    # Test suite
 │   ├── __init__.py
-│   ├── test_gitlab_client.py
-│   ├── test_event_processor.py
-│   ├── test_notifier.py
-│   ├── test_cache.py
-│   ├── test_config.py
-│   └── test_notification_stacking.py
+│   ├── test_gitlab_events.py
+│   ├── test_notifications.py
+│   ├── test_cache_critical.py
+│   ├── test_config_validation.py
+│   ├── test_cron_detection.py
+│   ├── test_multiple_notifications.py
+│   ├── test_notification_click.py
+│   ├── test_notification_stacking.py
+│   ├── test_optimized_filtering.py
+│   ├── test_performance_comparison.py
+│   ├── test_real_multiple_events.py
+│   ├── test_real_urls.py
+│   ├── test_url_comparison.py
+│   └── test_all_notifications.py
 ├── docs/                     # Documentation
 ├── docker/                   # Docker files
 ├── scripts/                  # Utility scripts
@@ -332,15 +350,28 @@ def process_event(event: dict) -> bool:
 
 ### Version Management
 ```bash
-# Update version
+# Update version (automatically handled by CI/CD)
 bump2version patch  # or minor/major
 
 # Build distribution
-python setup.py sdist bdist_wheel
+python -m build
 
-# Upload to PyPI (if applicable)
+# Upload to PyPI (automatically handled by CI/CD)
 twine upload dist/*
 ```
+
+### CI/CD Pipeline
+The project uses GitHub Actions for automated:
+- **Testing**: Multi-platform and multi-version Python testing
+- **Building**: Package and binary creation for all platforms
+- **Releasing**: Automatic version bumping and GitHub release creation
+- **Publishing**: PyPI package publication
+
+### Version Bumping Process
+1. Push to `main` branch triggers automatic version bump
+2. CI/CD creates new tag and GitHub release
+3. Binaries are built for Linux, Windows, and macOS
+4. PyPI package is automatically published
 
 ### Release Checklist
 - [ ] All tests pass

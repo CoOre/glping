@@ -4,21 +4,21 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from .async_gitlab_api import AsyncGitLabAPI
+from .base_watcher import BaseWatcher
 from .cache import Cache
 from .config import Config
 from .notifier import Notifier
+from .utils.url_utils import get_event_url
 
 
-class AsyncGitLabWatcher:
-    """Асинхронный класс для отслеживания событий GitLab"""
+class AsyncGitLabWatcher(BaseWatcher):
+    """Асинхронный класс для отслеживания событий GitLab."""
 
     def __init__(self, config: Config):
-        """Инициализация наблюдателя"""
-        self.config = config
-        self.cache = Cache(config.cache_file)
+        """Инициализация наблюдателя."""
+        super().__init__(config)
         self.api = AsyncGitLabAPI(config.gitlab_url, config.gitlab_token)
         self.notifier = Notifier()
-        self._project_paths_cache = {}  # Кэш путей проектов
         self._semaphore = asyncio.Semaphore(10)  # Ограничение одновременных запросов
 
     async def check_projects(self, verbose: bool = False):
@@ -318,17 +318,31 @@ class AsyncGitLabWatcher:
                 return f"{self.config.gitlab_url}/{project_path}/-/issues/{target_iid}"
             elif target_id:
                 return f"{self.config.gitlab_url}/{project_path}/-/issues/{target_id}"
-        elif target_type == "Note" and target_id:
-            noteable_type = event.get("data", {}).get("noteable_type")
-            noteable_iid = event.get("data", {}).get("noteable_iid")
+        elif target_type in ["Note", "DiffNote"] and target_id:
+            # Получаем данные о комментируемом объекте
+            # Сначала проверяем в note, потом в data (разные версии API)
+            note_data = event.get("note", {})
+            noteable_type = note_data.get("noteable_type") or event.get("data", {}).get("noteable_type")
+            noteable_iid = note_data.get("noteable_iid") or event.get("data", {}).get("noteable_iid")
+
+            # DiffNote и Note к MergeRequest
             if noteable_type == "MergeRequest" and noteable_iid:
-                return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
+                if target_type == "DiffNote":
+                    # Для DiffNote используем discussion_id если есть
+                    discussion_id = note_data.get("discussion_id")
+                    if discussion_id:
+                        return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
+                    else:
+                        return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
+                else:
+                    return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
             elif noteable_type == "Issue" and noteable_iid:
                 return f"{self.config.gitlab_url}/{project_path}/-/issues/{noteable_iid}#note_{target_id}"
-            elif noteable_type == "MergeRequest" and noteable_iid:
-                return f"{self.config.gitlab_url}/{project_path}/-/merge_requests/{noteable_iid}#note_{target_id}"
-            elif noteable_type == "Issue" and noteable_iid:
-                return f"{self.config.gitlab_url}/{project_path}/-/issues/{noteable_iid}#note_{target_id}"
+            elif noteable_type == "Commit":
+                # Для комментариев к коммиту нужен commit_id
+                commit_id = note_data.get("commit_id")
+                if commit_id:
+                    return f"{self.config.gitlab_url}/{project_path}/-/commit/{commit_id}#note_{target_id}"
         elif target_type == "Commit" and target_id:
             return f"{self.config.gitlab_url}/{project_path}/-/commit/{target_id}"
         elif target_type == "Pipeline" and target_id:

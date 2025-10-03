@@ -4,13 +4,18 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+from .base_gitlab_api import BaseGitLabAPI
+from .config import Config
 
 
-class AsyncGitLabAPI:
-    """Асинхронный класс для работы с GitLab API"""
+class AsyncGitLabAPI(BaseGitLabAPI):
+    """Асинхронный класс для работы с GitLab API."""
 
     def __init__(self, url: str, token: str):
-        """Инициализация подключения к GitLab"""
+        """Инициализация подключения к GitLab."""
+        # Создаем временную конфигурацию для обратной совместимости
+        config = type('Config', (), {'gitlab_url': url, 'private_token': token})()
+        super().__init__(config)
         self.url = url.rstrip("/")
         self.token = token
         self.session = None
@@ -208,110 +213,62 @@ class AsyncGitLabAPI:
             print(f"Ошибка подключения: {e}")
             return False
 
-    def _format_event_date(self, event: Dict[str, Any]) -> str:
-        """Форматирует дату события"""
-        from datetime import datetime
-        
-        created_at = event.get("created_at", "")
-        if created_at:
-            try:
-                # Преобразуем ISO дату в читаемый формат
-                if created_at.endswith('Z'):
-                    event_dt = datetime.fromisoformat(created_at[:-1] + '+00:00')
-                else:
-                    event_dt = datetime.fromisoformat(created_at)
-                # Форматируем как ДД.ММ.ЧЧ:ММ
-                return event_dt.strftime("%d.%m.%H:%M")
-            except:
-                pass
-        return ""
+    # Методы форматирования дат и событий теперь наследуются от базового класса
 
-    def get_event_description(self, event: Dict[str, Any]) -> str:
-        """Получить описание события на русском языке"""
-        event_type = event.get("target_type", "Неизвестно")
-        action_name = event.get("action_name", "неизвестно")
-        author_name = event.get("author", {}).get("name", "Неизвестный")
-        push_data = event.get("push_data", {})
-        
-        # Получаем отформатированную дату
-        event_date = self._format_event_date(event)
+    def get_project(self, project_id: int) -> Dict[str, Any]:
+        """Получить информацию о проекте."""
+        return asyncio.run(self._async_get_project(project_id))
 
-        # Обработка push событий
-        if action_name in ["pushed", "pushed new", "pushed to"] and push_data:
-            ref = push_data.get("ref", "")
-            commit_count = push_data.get("commit_count", 0)
-            action = push_data.get("action", "")
+    async def _async_get_project(self, project_id: int) -> Dict[str, Any]:
+        """Асинхронный метод получения информации о проекте."""
+        endpoint = f"projects/{project_id}"
+        projects = await self._make_request("GET", endpoint)
+        return projects[0] if projects else {}
 
-            if ref.startswith("refs/heads/"):
-                branch = ref.replace("refs/heads/", "")
-                if action == "removed":
-                    description = f"Ветка {branch} удалена {author_name}"
-                elif commit_count > 0:
-                    description = f"Новые коммиты в ветку {branch} от {author_name} ({commit_count} коммитов)"
-                else:
-                    description = f"Push в ветку {branch} от {author_name}"
-            else:
-                description = f"Новые коммиты от {author_name}"
-            
-            return f"{description} {event_date}".strip()
+    def get_project_merge_requests(
+        self, project_id: int, state: str = "opened", updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Получить merge requests проекта."""
+        return asyncio.run(self._async_get_project_merge_requests(project_id, state, updated_after))
 
-        if event_type == "MergeRequest":
-            if action_name == "opened":
-                description = f"Новый Merge Request от {author_name}"
-            elif action_name == "updated":
-                description = f"Merge Request обновлен {author_name}"
-            elif action_name == "closed":
-                description = f"Merge Request закрыт {author_name}"
-            elif action_name == "merged":
-                description = f"Merge Request смержен {author_name}"
-            elif action_name == "approved":
-                description = f"Merge Request одобрен {author_name}"
-            else:
-                description = f"Merge Request {action_name} от {author_name}"
-            
-            return f"{description} {event_date}".strip()
+    async def _async_get_project_merge_requests(
+        self, project_id: int, state: str = "opened", updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Асинхронный метод получения merge requests."""
+        params = {"state": state}
+        if updated_after:
+            params["updated_after"] = updated_after
+        endpoint = f"projects/{project_id}/merge_requests"
+        return await self._make_request("GET", endpoint, params)
 
-        elif event_type == "Issue":
-            if action_name == "opened":
-                description = f"Новая задача от {author_name}"
-            elif action_name == "closed":
-                description = f"Задача закрыта {author_name}"
-            elif action_name == "reopened":
-                description = f"Задача переоткрыта {author_name}"
-            else:
-                description = f"Задача {action_name} от {author_name}"
-            
-            return f"{description} {event_date}".strip()
+    def get_project_issues(
+        self, project_id: int, state: str = "opened", updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Получить задачи проекта."""
+        return asyncio.run(self._async_get_project_issues(project_id, state, updated_after))
 
-        elif event_type == "Note":
-            # Получаем текст комментария
-            note_body = event.get("note", {}).get("body", "")
-            if note_body:
-                # Обрезаем длинные комментарии
-                if len(note_body) > 100:
-                    note_body = note_body[:100] + "..."
-                description = f"Новый комментарий от {author_name}:\n\"{note_body}\""
-            else:
-                description = f"Новый комментарий от {author_name}"
-            
-            return f"{description} {event_date}".strip()
+    async def _async_get_project_issues(
+        self, project_id: int, state: str = "opened", updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Асинхронный метод получения задач."""
+        params = {"state": state}
+        if updated_after:
+            params["updated_after"] = updated_after
+        endpoint = f"projects/{project_id}/issues"
+        return await self._make_request("GET", endpoint, params)
 
-        elif event_type == "Commit":
-            description = f"Новый коммит от {author_name}"
-            return f"{description} {event_date}".strip()
+    def get_project_pipelines(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Получить pipelines проекта."""
+        return asyncio.run(self._async_get_project_pipelines(project_id, updated_after))
 
-        elif event_type == "Pipeline":
-            status = event.get("data", {}).get("status", "неизвестно")
-            status_map = {
-                "success": "успешно",
-                "failed": "с ошибкой",
-                "running": "выполняется",
-                "pending": "ожидает",
-                "canceled": "отменен",
-            }
-            status_ru = status_map.get(status, status)
-            description = f"Pipeline {status_ru} от {author_name}"
-            return f"{description} {event_date}".strip()
-
-        description = f"{event_type} {action_name} от {author_name}"
-        return f"{description} {event_date}".strip()
+    async def _async_get_project_pipelines(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Асинхронный метод получения pipelines."""
+        params = {}
+        if updated_after:
+            params["updated_after"] = updated_after
+        endpoint = f"projects/{project_id}/pipelines"
+        return await self._make_request("GET", endpoint, params)

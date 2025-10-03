@@ -17,7 +17,7 @@ from glping.cache import Cache
 from glping.config import Config
 
 
-class TestOptimizedFiltering(unittest.TestCase):
+class TestOptimizedFiltering(unittest.IsolatedAsyncioTestCase):
     """Тесты оптимизированной фильтрации проектов"""
 
     def setUp(self):
@@ -109,15 +109,22 @@ class TestOptimizedFiltering(unittest.TestCase):
         
         mock_api.get_projects.return_value = all_projects
         
-        # Создаем watcher с мок API
+ # Создаем watcher с мок API
         with patch('glping.async_watcher.AsyncGitLabAPI', return_value=mock_api):
             watcher = AsyncGitLabWatcher(self.config)
             watcher.api = mock_api
             
+            # Принудительно очищаем кеш для имитации первого запуска
+            watcher.cache.data = {
+                "metadata": {},
+                "projects": {},
+                "project_activity": {}
+            }
+            
             # Первый запуск - нет даты последней проверки
             await watcher.check_projects(verbose=False)
             
-            # Проверяем, что API был вызван БЕЗ фильтрации
+            # Проверяем, что API был вызван БЕЗ параметра last_activity_after
             mock_api.get_projects.assert_called_once_with(
                 membership=True,
                 fields=[
@@ -126,8 +133,7 @@ class TestOptimizedFiltering(unittest.TestCase):
                     "name_with_namespace", 
                     "path_with_namespace",
                     "last_activity_at",
-                ],
-                last_activity_after=None
+                ]
             )
 
     async def test_cache_activity_update(self):
