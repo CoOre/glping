@@ -1,9 +1,17 @@
 import os
 import sys
-import fcntl
 import tempfile
+import platform
 from typing import Optional, ContextManager
 from contextlib import contextmanager
+
+# Кроссплатформенный импорт fcntl
+try:
+    import fcntl
+    HAS_FCNTL = True
+except ImportError:
+    # Windows не поддерживает fcntl
+    HAS_FCNTL = False
 
 
 class ProcessLock:
@@ -21,7 +29,27 @@ class ProcessLock:
             temp_dir = tempfile.gettempdir()
             self.lock_path = os.path.join(temp_dir, f"{self.lock_name}.lock")
             
-            # Открываем файл для блокировки
+            # На Windows используем простой механизм через файл
+            if not HAS_FCNTL:
+                # Проверяем существует ли файл блокировки
+                if os.path.exists(self.lock_path):
+                    # Проверяем актуальность PID
+                    try:
+                        with open(self.lock_path, 'r') as f:
+                            pid = int(f.read().strip())
+                        # Проверяем жив ли процесс
+                        if self._is_process_running(pid):
+                            return False
+                    except (ValueError, FileNotFoundError):
+                        pass
+                
+                # Создаем новый файл блокировки
+                self.lock_file = open(self.lock_path, 'w')
+                self.lock_file.write(str(os.getpid()))
+                self.lock_file.flush()
+                return True
+            
+            # На Unix системах используем fcntl
             self.lock_file = open(self.lock_path, 'w')
             
             # Пытаемся получить эксклюзивную блокировку
@@ -50,7 +78,8 @@ class ProcessLock:
         """Освободить блокировку"""
         if self.lock_file:
             try:
-                fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+                if HAS_FCNTL:
+                    fcntl.flock(self.lock_file, fcntl.LOCK_UN)
                 self.lock_file.close()
                 self.lock_file = None
                 
@@ -59,6 +88,27 @@ class ProcessLock:
                     os.unlink(self.lock_path)
             except Exception:
                 pass  # Игнорируем ошибки при освобождении
+    
+    def _is_process_running(self, pid: int) -> bool:
+        """Проверить, запущен ли процесс с указанным PID (кроссплатформенно)"""
+        try:
+            if platform.system() == "Windows":
+                # На Windows проверяем через tasklist или psutil если доступен
+                try:
+                    import psutil
+                    return psutil.pid_exists(pid)
+                except ImportError:
+                    # Резервный метод для Windows без psutil
+                    import subprocess
+                    result = subprocess.run(['tasklist', '/FI', f'PID eq {pid}'], 
+                                          capture_output=True, text=True)
+                    return str(pid) in result.stdout
+            else:
+                # Unix системы
+                os.kill(pid, 0)
+                return True
+        except (OSError, ImportError, ProcessLookupError, subprocess.SubprocessError):
+            return False
     
     def __enter__(self):
         """Контекстный менеджер - вход"""
@@ -77,6 +127,15 @@ class ProcessLock:
         try:
             if not os.path.exists(self.lock_path):
                 return False
+            
+            if not HAS_FCNTL:
+                # На Windows проверяем PID
+                with open(self.lock_path, 'r') as f:
+                    try:
+                        pid = int(f.read().strip())
+                        return self._is_process_running(pid)
+                    except (ValueError, FileNotFoundError):
+                        return False
                 
             # Пытаемся получить блокировку для проверки
             with open(self.lock_path, 'r') as f:

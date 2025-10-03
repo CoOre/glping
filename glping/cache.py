@@ -3,8 +3,16 @@ import json
 import os
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
-import fcntl
 import tempfile
+import platform
+
+# Кроссплатформенный импорт fcntl
+try:
+    import fcntl
+    HAS_FCNTL = True
+except ImportError:
+    # Windows не поддерживает fcntl
+    HAS_FCNTL = False
 
 
 class Cache:
@@ -141,8 +149,9 @@ class Cache:
                 )
                 
                 with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-                    # Блокируем файл на время записи
-                    fcntl.flock(f, fcntl.LOCK_EX)
+                    # Блокируем файл на время записи (только на Unix системах)
+                    if HAS_FCNTL:
+                        fcntl.flock(f, fcntl.LOCK_EX)
                     json.dump(self.data, f, indent=2, ensure_ascii=False)
                     f.flush()  # Принудительно записываем на диск
                     os.fsync(f.fileno())  # Синхронизация с файловой системой
@@ -151,8 +160,8 @@ class Cache:
                 os.replace(temp_file, self.cache_file)
                 temp_file = None  # Файл уже перемещен
                 
-            except (ImportError, AttributeError):
-                # Если fcntl недоступен (Windows), используем обычную запись
+            except Exception:
+                # Если произошла ошибка, используем обычную запись
                 with open(self.cache_file, "w", encoding="utf-8") as f:
                     json.dump(self.data, f, indent=2, ensure_ascii=False)
             finally:
