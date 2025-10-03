@@ -17,7 +17,7 @@ from glping.cache import Cache
 from glping.config import Config
 
 
-class TestOptimizedFiltering(unittest.TestCase):
+class TestOptimizedFiltering(unittest.IsolatedAsyncioTestCase):
     """Тесты оптимизированной фильтрации проектов"""
 
     def setUp(self):

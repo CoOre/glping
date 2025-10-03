@@ -38,7 +38,8 @@ class TestCronDetection(unittest.TestCase):
         try:
             os.isatty = lambda fd: False
             os.environ.clear()
-            os.environ.update({'PATH': '/usr/bin:/bin'})
+            # Добавляем переменную которая является сильным индикатором cron
+            os.environ.update({'PATH': '/usr/bin:/bin', 'MAILTO': 'root'})
             
             notifier = Notifier()
             self.assertTrue(notifier.is_cron, "Crontab окружение должно определяться как cron")
