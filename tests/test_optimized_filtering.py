@@ -117,7 +117,7 @@ class TestOptimizedFiltering(unittest.IsolatedAsyncioTestCase):
             # Первый запуск - нет даты последней проверки
             await watcher.check_projects(verbose=False)
             
-            # Проверяем, что API был вызван БЕЗ фильтрации
+            # Проверяем, что API был вызван БЕЗ параметра last_activity_after
             mock_api.get_projects.assert_called_once_with(
                 membership=True,
                 fields=[
@@ -126,8 +126,7 @@ class TestOptimizedFiltering(unittest.IsolatedAsyncioTestCase):
                     "name_with_namespace", 
                     "path_with_namespace",
                     "last_activity_at",
-                ],
-                last_activity_after=None
+                ]
             )
 
     async def test_cache_activity_update(self):
