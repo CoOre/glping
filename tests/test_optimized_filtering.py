@@ -115,7 +115,11 @@ class TestOptimizedFiltering(unittest.IsolatedAsyncioTestCase):
             watcher.api = mock_api
             
             # Принудительно очищаем кеш для имитации первого запуска
-            watcher.cache.data = {}
+            watcher.cache.data = {
+                "metadata": {},
+                "projects": {},
+                "project_activity": {}
+            }
             
             # Первый запуск - нет даты последней проверки
             await watcher.check_projects(verbose=False)
