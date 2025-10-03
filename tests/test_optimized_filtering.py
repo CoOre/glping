@@ -109,10 +109,13 @@ class TestOptimizedFiltering(unittest.IsolatedAsyncioTestCase):
         
         mock_api.get_projects.return_value = all_projects
         
-        # Создаем watcher с мок API
+ # Создаем watcher с мок API
         with patch('glping.async_watcher.AsyncGitLabAPI', return_value=mock_api):
             watcher = AsyncGitLabWatcher(self.config)
             watcher.api = mock_api
+            
+            # Принудительно очищаем кеш для имитации первого запуска
+            watcher.cache.data = {}
             
             # Первый запуск - нет даты последней проверки
             await watcher.check_projects(verbose=False)
