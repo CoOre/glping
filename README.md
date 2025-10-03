@@ -1,9 +1,11 @@
 # GitLab Ping
 
-[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](tests/)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-Automated-brightgreen.svg)](.github/workflows/ci.yml)
+[![PyPI Version](https://img.shields.io/pypi/v/glping.svg)](https://pypi.org/project/glping/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/r/coore/glping)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/CoOre?color=ff69b4)](https://github.com/sponsors/CoOre)
 
@@ -21,7 +23,7 @@ CLI-утилита для отслеживания событий в GitLab с p
 ## Установка
 
 ### Требования
-- Python 3.11+
+- Python 3.9+
 - GitLab personal access token
 
 ### Быстрая установка с помощью Makefile
@@ -240,25 +242,44 @@ make clean
 
 ```
 glping/
-├── __init__.py      # Пакетная информация
-├── main.py          # Точка входа CLI
-├── config.py        # Конфигурация из .env
-├── cache.py         # Унифицированная система кэширования
-├── gitlab_api.py    # Обёртка для GitLab API
-├── async_gitlab_api.py # Асинхронная обёртка для GitLab API
-├── notifier.py      # Push-уведомления с поддержкой стекирования и cron detection
-├── optimized_notifier.py # Оптимизированные уведомления
-├── watcher.py       # Основная логика
-├── async_watcher.py # Асинхронная основная логика
-├── requirements.txt # Зависимости
-├── setup.py         # Установка пакета
-├── pyproject.toml   # Современная конфигурация проекта
-├── .env.example     # Пример конфигурации
-├── com.glping.daemon.plist # launchd конфигурация для macOS
-├── launchd_setup.sh # Скрипт настройки launchd
-├── launchd_cleanup.sh # Скрипт очистки launchd
-└── ~/glping/logs/   # Директория для логов launchd в домашней директории
+├── __init__.py              # Пакетная информация и версия
+├── main.py                  # Точка входа CLI
+├── config.py                # Конфигурация из .env
+├── cache.py                 # Унифицированная система кэширования
+├── lock.py                  # Утилиты файловой блокировки
+├── base_gitlab_api.py       # Базовый класс GitLab API
+├── base_watcher.py          # Базовый класс наблюдателя
+├── gitlab_api.py            # Синхронная обёртка для GitLab API
+├── async_gitlab_api.py      # Асинхронная обёртка для GitLab API
+├── notifier.py              # Push-уведомления с поддержкой стекирования
+├── optimized_notifier.py    # Оптимизированные уведомления
+├── watcher.py               # Синхронная основная логика
+├── async_watcher.py         # Асинхронная основная логика
+├── assets/                  # Ресурсы приложения
+│   ├── glping-icon.png      # Основная иконка
+│   ├── glping-icon-128.png  # Иконка 128px
+│   └── glping-icon-256.png  # Иконка 256px
+├── utils/                   # Утилиты
+│   ├── __init__.py          # Пакет утилит
+│   ├── date_utils.py        # Работа с датами и временем
+│   ├── event_utils.py       # Обработка событий
+│   └── url_utils.py         # Обработка URL
+├── requirements.txt         # Зависимости
+├── setup.py                 # Установка пакета
+├── pyproject.toml           # Современная конфигурация проекта
+├── .env.example             # Пример конфигурации
+├── com.glping.daemon.plist  # launchd конфигурация для macOS
+├── launchd_setup.sh         # Скрипт настройки launchd
+├── launchd_cleanup.sh       # Скрипт очистки launchd
+└── ~/glping/logs/           # Директория для логов launchd
 ```
+
+### Ключевые компоненты
+
+- **Базовые классы**: `BaseGitLabApi` и `BaseWatcher` обеспечивают переиспользование кода
+- **Утилиты**: Модуль `utils` содержит функции для работы с датами, событиями и URL
+- **Асинхронная поддержка**: Полная поддержка асинхронных операций для улучшенной производительности
+- **Оптимизированные уведомления**: Умная система фильтрации и стекирования уведомлений
 
 ## Кэширование
 
@@ -361,3 +382,18 @@ https://github.com/CoOre/glping
 - [LAUNCHD_SETUP.md](LAUNCHD_SETUP.md) - Подробная инструкция по настройке launchd
 - [DEVELOPMENT.md](DEVELOPMENT.md) - Руководство для разработчиков
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Как внести вклад в проект
+- [CHANGELOG.md](CHANGELOG.md) - Список изменений
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Архитектура проекта
+
+## Установка через PyPI
+
+```bash
+pip install glping
+```
+
+## Скачивание бинарных файлов
+
+Готовые бинарные файлы доступны в [релизах GitHub](https://github.com/CoOre/glping/releases):
+- `glping-linux` - для Linux
+- `glping-macos` - для macOS  
+- `glping-windows.exe` - для Windows
