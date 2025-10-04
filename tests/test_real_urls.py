@@ -53,7 +53,7 @@ def test_real_urls():
             print(f"Описание: {description}")
 
             # Генерируем URL
-            url = watcher._get_event_url(event, project_id)
+            url = watcher.get_event_url(event, project_id)
             print(f"Сгенерированный URL: {url}")
 
             # Проверяем, что URL не пустой и выглядит правильно

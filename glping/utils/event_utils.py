@@ -185,3 +185,98 @@ def get_event_description(event: Dict[str, Any]) -> str:
 
     else:
         return f"{event_type} {action_name} от {author_name} {event_date}".strip()
+
+
+def pipeline_to_event(pipeline: Dict[str, Any], project: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Конвертировать pipeline в формат события для унифицированной обработки.
+    
+    Args:
+        pipeline: Данные pipeline из GitLab API
+        project: Данные проекта
+        
+    Returns:
+        Словарь в формате события
+    """
+    # Создаем уникальный ID для pipeline события
+    event_id = f"pipeline_{pipeline['id']}"
+    
+    # Определяем автора pipeline
+    user = pipeline.get("user") or {}
+    author_name = user.get("name", "Система CI/CD")
+    author_username = user.get("username", "system")
+    
+    return {
+        "id": event_id,
+        "target_type": "Pipeline",
+        "action_name": "updated",
+        "created_at": pipeline["created_at"],
+        "updated_at": pipeline.get("updated_at", pipeline["created_at"]),
+        "author": {
+            "name": author_name,
+            "username": author_username,
+            "avatar_url": user.get("avatar_url", "")
+        },
+        "target_id": pipeline["id"],
+        "target_iid": pipeline["id"],
+        "project_id": project["id"],
+        "data": {
+            "status": pipeline["status"],
+            "ref": pipeline.get("ref", ""),
+            "sha": pipeline.get("sha", ""),
+            "source": pipeline.get("source", ""),
+            "duration": pipeline.get("duration"),
+            "web_url": pipeline.get("web_url", "")
+        },
+        # Дополнительные поля для совместимости
+        "push_data": {},
+        "note": {}
+    }
+
+
+def is_new_pipeline_event(pipeline: Dict[str, Any], project_id: int, cache) -> bool:
+    """
+    Проверить, является ли pipeline событие новым.
+    
+    Args:
+        pipeline: Данные pipeline
+        project_id: ID проекта
+        cache: Объект кеша
+        
+    Returns:
+        True если pipeline новый, False если уже обработан
+    """
+    pipeline_id = pipeline["id"]
+    event_id = f"pipeline_{pipeline_id}"
+    
+    # Проверяем кеш событий
+    cached_events = cache.get_project_events(project_id)
+    if cached_events and event_id in cached_events:
+        return False
+    
+    return True
+
+
+def save_pipeline_event_to_cache(pipeline: Dict[str, Any], project_id: int, cache):
+    """
+    Сохранить pipeline событие в кеш.
+    
+    Args:
+        pipeline: Данные pipeline
+        project_id: ID проекта
+        cache: Объект кеша
+    """
+    pipeline_id = pipeline["id"]
+    event_id = f"pipeline_{pipeline_id}"
+    
+    # Проверяем наличие метода
+    if hasattr(cache, 'save_project_event'):
+        cache.save_project_event(project_id, event_id)
+    else:
+        # Альтернативный способ сохранения для совместимости
+        cached_events = cache.get_project_events(project_id) or set()
+        cached_events.add(event_id)
+        if hasattr(cache, 'data'):
+            if 'project_events' not in cache.data:
+                cache.data['project_events'] = {}
+            cache.data['project_events'][str(project_id)] = list(cached_events)

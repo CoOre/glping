@@ -70,11 +70,48 @@ def test_all_notification_types():
         message="Новый коммит от Дмитрий Волков",
         url="https://gitlab.example.com/123/-/commit/abc123def456",
     )
+    time.sleep(2)
+
+    # Тест 7: Pipeline выполняется
+    print("\n7. Тест: Pipeline выполняется")
+    notifier.send_notification(
+        title="my-project",
+        message="Pipeline #204 выполняется от Система CI/CD для feature/test-branch",
+        url="https://gitlab.example.com/123/-/pipelines/204",
+    )
+    time.sleep(2)
+
+    # Тест 8: Pipeline ожидает
+    print("\n8. Тест: Pipeline ожидает")
+    notifier.send_notification(
+        title="my-project",
+        message="Pipeline #205 ожидает от Система CI/CD для develop",
+        url="https://gitlab.example.com/123/-/pipelines/205",
+    )
+    time.sleep(2)
+
+    # Тест 9: Pipeline отменен
+    print("\n9. Тест: Pipeline отменен")
+    notifier.send_notification(
+        title="my-project",
+        message="Pipeline #206 отменен от Система CI/CD для hotfix/urgent-fix",
+        url="https://gitlab.example.com/123/-/pipelines/206",
+    )
+    time.sleep(2)
+
+    # Тест 10: Pipeline с указанием ветки
+    print("\n10. Тест: Pipeline с указанием ветки")
+    notifier.send_notification(
+        title="my-project",
+        message="Pipeline #207 успешно от Иван Петров для feature/new-api",
+        url="https://gitlab.example.com/123/-/pipelines/207",
+    )
 
     print("\n" + "=" * 60)
     print("✅ Все тесты уведомлений завершены!")
     print("📱 Проверьте всплывающие уведомления на вашем устройстве")
     print("🔗 При клике на уведомление должна открываться соответствующая страница")
+    print("🔄 Проверены все статусы Pipeline: успешно, с ошибкой, выполняется, ожидает, отменен")
 
 
 if __name__ == "__main__":

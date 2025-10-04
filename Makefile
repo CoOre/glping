@@ -132,6 +132,24 @@ test:
 	
 	@echo "✅ Все тесты завершены!"
 
+# Run CI/CD specific tests
+test-ci:
+	@echo "🔄 Тестирование CI/CD событий..."
+	@echo "==============================="
+	
+	@echo "🧪 Тестирование pipeline событий..."
+	@python3 tests/test_pipeline_events.py
+	
+	@echo "🔗 Тестирование интеграции CI/CD..."
+	@python3 tests/test_ci_integration_simple.py
+	
+	@echo "✅ Все CI/CD тесты завершены!"
+
+# Run all tests including CI/CD
+test-all: test test-ci
+	@echo ""
+	@echo "🎉 Все тесты (основные + CI/CD) успешно завершены!"
+
 # Run linting
 lint:
 	@echo "🔍 Проверка кода с помощью flake8..."
@@ -226,6 +244,16 @@ test-stacking:
 	@echo "📱 Проверка стекирования уведомлений..."
 	@echo "======================================="
 	@python3 tests/test_notification_stacking.py
+
+test-all-notifications:
+	@echo "🔔 Тестирование всех типов уведомлений..."
+	@echo "========================================"
+	@python3 tests/test_all_notifications.py
+
+test-gitlab-events:
+	@echo "🔄 Тестирование симуляции событий GitLab..."
+	@echo "=========================================="
+	@python3 tests/test_gitlab_events.py
 
 # Check system requirements
 check-reqs:
