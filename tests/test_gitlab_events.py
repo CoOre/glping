@@ -90,6 +90,30 @@ def simulate_gitlab_events():
             "url": "https://msk-git-dev01.ntcees.ru/456/-/commit/abc123def456",
             "created_at": "2025-09-30T15:10:15Z",
         },
+        {
+            "type": "Pipeline",
+            "action": "running",
+            "author": "Система CI/CD",
+            "project": "frontend/react-app",
+            "url": "https://msk-git-dev01.ntcees.ru/321/-/pipelines/888",
+            "created_at": "2025-09-30T15:20:00Z",
+        },
+        {
+            "type": "Pipeline",
+            "action": "pending",
+            "author": "Система CI/CD",
+            "project": "backend/node-service",
+            "url": "https://msk-git-dev01.ntcees.ru/654/-/pipelines/999",
+            "created_at": "2025-09-30T15:25:00Z",
+        },
+        {
+            "type": "Pipeline",
+            "action": "canceled",
+            "author": "Система CI/CD",
+            "project": "devops/infrastructure",
+            "url": "https://msk-git-dev01.ntcees.ru/987/-/pipelines/1111",
+            "created_at": "2025-09-30T15:30:00Z",
+        },
     ]
 
     def format_test_date(created_at):
@@ -134,6 +158,12 @@ def simulate_gitlab_events():
                 message = f"Pipeline успешно от {event['author']}"
             elif event["action"] == "failed":
                 message = f"Pipeline с ошибкой от {event['author']}"
+            elif event["action"] == "running":
+                message = f"Pipeline выполняется от {event['author']}"
+            elif event["action"] == "pending":
+                message = f"Pipeline ожидает от {event['author']}"
+            elif event["action"] == "canceled":
+                message = f"Pipeline отменен от {event['author']}"
             else:
                 message = f"Pipeline {event['action']} от {event['author']}"
 

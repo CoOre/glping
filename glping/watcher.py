@@ -175,6 +175,9 @@ class GitLabWatcher(BaseWatcher):
                 if verbose:
                     print(f"    Нет новых событий")
 
+            # Проверяем pipeline события отдельно
+            self._check_pipeline_events(project, verbose, last_checked_dt)
+
         except Exception as e:
             print(f"Ошибка при проверке проекта {project_name}: {e}")
 
@@ -283,6 +286,69 @@ class GitLabWatcher(BaseWatcher):
         """Сбросить кеш"""
         self.cache.reset()
         print("Кеш успешно сброшен")
+
+    def _check_pipeline_events(
+        self, project: Dict[str, Any], verbose: bool = False, last_checked_dt: Optional[datetime] = None
+    ):
+        """Отдельная проверка pipeline событий"""
+        from .utils.event_utils import pipeline_to_event, is_new_pipeline_event, save_pipeline_event_to_cache
+        
+        project_id = project["id"]
+        project_name = project.get("name_with_namespace", project.get("name", f"Проект {project_id}"))
+        
+        try:
+            # Получаем pipelines, обновленные после последней проверки
+            updated_after = last_checked_dt.isoformat() if last_checked_dt else None
+            pipelines = self.api.get_project_pipelines(project_id, updated_after=updated_after)
+            
+            if verbose:
+                print(f"    Найдено pipelines: {len(pipelines)}")
+            
+            if not pipelines:
+                return
+            
+            # Фильтруем и обрабатываем pipelines
+            new_pipeline_events = []
+            for pipeline in pipelines:
+                # Проверяем, что pipeline новый
+                if is_new_pipeline_event(pipeline, project_id, self.cache):
+                    # Конвертируем pipeline в событие
+                    event = pipeline_to_event(pipeline, project)
+                    
+                    # Дополнительная фильтрация по дате
+                    if last_checked_dt:
+                        try:
+                            pipeline_dt = datetime.fromisoformat(
+                                pipeline["created_at"].replace("Z", "+00:00")
+                            )
+                            if pipeline_dt > last_checked_dt:
+                                new_pipeline_events.append(event)
+                        except (ValueError, TypeError):
+                            # Если не удалось распарсить дату, включаем событие
+                            new_pipeline_events.append(event)
+                    else:
+                        new_pipeline_events.append(event)
+            
+            if new_pipeline_events:
+                if verbose:
+                    print(f"    Найдено {len(new_pipeline_events)} новых pipeline событий")
+                
+                # Обрабатываем pipeline события
+                for event in sorted(new_pipeline_events, key=lambda x: x.get("created_at", "")):
+                    self._process_event(event, project_name, project_id, verbose)
+                
+                # Сохраняем pipeline события в кеш
+                for pipeline in pipelines:
+                    save_pipeline_event_to_cache(pipeline, project_id, self.cache)
+                
+                if verbose:
+                    print(f"    Pipeline события обработаны и сохранены в кеш")
+            
+        except Exception as e:
+            if verbose:
+                print(f"    Ошибка при проверке pipelines: {e}")
+            else:
+                print(f"Ошибка при проверке pipelines для проекта {project_name}: {e}")
 
     def test_notification(self):
         """Отправить тестовое уведомление"""
