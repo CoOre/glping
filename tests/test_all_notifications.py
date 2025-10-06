@@ -27,12 +27,39 @@ def test_all_notification_types():
     )
     time.sleep(2)
 
+    # Тест 1.1: Merge Request переоткрыт
+    print("\n1.1. Тест: Merge Request переоткрыт")
+    notifier.send_notification(
+        title="my-project",
+        message="Merge Request переоткрыт от Анна Смирнова",
+        url="https://gitlab.example.com/123/-/merge_requests/457",
+    )
+    time.sleep(2)
+
+    # Тест 1.2: Merge Request одобрен
+    print("\n1.2. Тест: Merge Request одобрен")
+    notifier.send_notification(
+        title="my-project",
+        message="Merge Request одобрен от Михаил Козлов",
+        url="https://gitlab.example.com/123/-/merge_requests/458",
+    )
+    time.sleep(2)
+
     # Тест 2: Новая задача
     print("\n2. Тест: Новая задача")
     notifier.send_notification(
         title="my-project",
         message="Новая задача от Петр Петров",
         url="https://gitlab.example.com/123/-/issues/789",
+    )
+    time.sleep(2)
+
+    # Тест 2.1: Задача обновлена
+    print("\n2.1. Тест: Задача обновлена")
+    notifier.send_notification(
+        title="my-project",
+        message="Задача обновлена от Ольга Новикова",
+        url="https://gitlab.example.com/123/-/issues/790",
     )
     time.sleep(2)
 
@@ -106,12 +133,31 @@ def test_all_notification_types():
         message="Pipeline #207 успешно от Иван Петров для feature/new-api",
         url="https://gitlab.example.com/123/-/pipelines/207",
     )
+    time.sleep(2)
+
+    # Тест 11: Создана новая ветка
+    print("\n11. Тест: Создана новая ветка")
+    notifier.send_notification(
+        title="my-project",
+        message="Создана новая ветка feature/awesome от Александр Иванов",
+        url="https://gitlab.example.com/123/-/tree/feature/awesome",
+    )
+    time.sleep(2)
+
+    # Тест 12: Создан тег
+    print("\n12. Тест: Создан тег")
+    notifier.send_notification(
+        title="my-project",
+        message="Создан тег v1.0.0 от Елена Петрова",
+        url="https://gitlab.example.com/123/-/tags/v1.0.0",
+    )
 
     print("\n" + "=" * 60)
     print("✅ Все тесты уведомлений завершены!")
     print("📱 Проверьте всплывающие уведомления на вашем устройстве")
     print("🔗 При клике на уведомление должна открываться соответствующая страница")
     print("🔄 Проверены все статусы Pipeline: успешно, с ошибкой, выполняется, ожидает, отменен")
+    print("🆕 Добавлены новые события: MergeRequest (reopened, approved), Issue (updated), Push (new branch, tag)")
 
 
 if __name__ == "__main__":

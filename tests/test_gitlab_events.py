@@ -29,12 +29,36 @@ def simulate_gitlab_events():
             "created_at": "2025-09-30T13:15:20Z",
         },
         {
+            "type": "MergeRequest",
+            "action": "reopened",
+            "author": "Анна Смирнова",
+            "project": "frontend/my-awesome-app",
+            "url": "https://msk-git-dev01.ntcees.ru/123/-/merge_requests/457",
+            "created_at": "2025-09-30T13:20:00Z",
+        },
+        {
+            "type": "MergeRequest",
+            "action": "approved",
+            "author": "Михаил Козлов",
+            "project": "frontend/my-awesome-app",
+            "url": "https://msk-git-dev01.ntcees.ru/123/-/merge_requests/458",
+            "created_at": "2025-09-30T13:25:00Z",
+        },
+        {
             "type": "Issue",
             "action": "opened",
             "author": "Петр Петров",
             "project": "backend/api-service",
             "url": "https://msk-git-dev01.ntcees.ru/456/-/issues/789",
             "created_at": "2025-09-30T13:45:10Z",
+        },
+        {
+            "type": "Issue",
+            "action": "updated",
+            "author": "Ольга Новикова",
+            "project": "backend/api-service",
+            "url": "https://msk-git-dev01.ntcees.ru/456/-/issues/790",
+            "created_at": "2025-09-30T13:50:00Z",
         },
         {
             "type": "Pipeline",
@@ -91,6 +115,22 @@ def simulate_gitlab_events():
             "created_at": "2025-09-30T15:10:15Z",
         },
         {
+            "type": "Push",
+            "action": "pushed new",
+            "author": "Александр Иванов",
+            "project": "devops/infrastructure",
+            "url": "https://msk-git-dev01.ntcees.ru/789/-/tree/feature/new-branch",
+            "created_at": "2025-09-30T15:15:00Z",
+        },
+        {
+            "type": "Push",
+            "action": "pushed",
+            "author": "Елена Петрова",
+            "project": "devops/infrastructure",
+            "url": "https://msk-git-dev01.ntcees.ru/789/-/tags/v1.0.0",
+            "created_at": "2025-09-30T15:20:00Z",
+        },
+        {
             "type": "Pipeline",
             "action": "running",
             "author": "Система CI/CD",
@@ -137,11 +177,23 @@ def simulate_gitlab_events():
         event_date = format_test_date(event.get("created_at", ""))
 
         # Формируем сообщение в зависимости от типа события
-        if event["type"] == "Merge Request":
+        if event["type"] == "MergeRequest":
             if event["action"] == "opened":
                 message = f"Новый Merge Request от {event['author']}"
             elif event["action"] == "merged":
                 message = f"Merge Request смержен {event['author']}"
+            elif event["action"] == "reopened":
+                message = f"Merge Request переоткрыт {event['author']}"
+            elif event["action"] == "approved":
+                message = f"Merge Request одобрен {event['author']}"
+            elif event["action"] == "unapproved":
+                message = f"Одобрение Merge Request отозвано {event['author']}"
+            elif event["action"] == "review_requested":
+                message = f"Запрошено ревью Merge Request {event['author']}"
+            elif event["action"] == "ready":
+                message = f"Merge Request переведен в статус Ready {event['author']}"
+            elif event["action"] == "draft":
+                message = f"Merge Request переведен в статус Draft {event['author']}"
             else:
                 message = f"Merge Request {event['action']} {event['author']}"
 
@@ -150,6 +202,12 @@ def simulate_gitlab_events():
                 message = f"Новая задача от {event['author']}"
             elif event["action"] == "closed":
                 message = f"Задача закрыта {event['author']}"
+            elif event["action"] == "reopened":
+                message = f"Задача переоткрыта {event['author']}"
+            elif event["action"] == "updated":
+                message = f"Задача обновлена {event['author']}"
+            elif event["action"] == "moved":
+                message = f"Задача перемещена {event['author']}"
             else:
                 message = f"Задача {event['action']} {event['author']}"
 
@@ -173,6 +231,14 @@ def simulate_gitlab_events():
 
         elif event["type"] == "Commit":
             message = f"Новый коммит от {event['author']}"
+        
+        elif event["type"] == "Push":
+            if event["action"] == "pushed new":
+                message = f"Создана новая ветка от {event['author']}"
+            elif event["action"] == "pushed":
+                message = f"Push от {event['author']}"
+            else:
+                message = f"Push {event['action']} от {event['author']}"
         
         else:
             message = f"{event['type']} {event['action']} от {event['author']}"

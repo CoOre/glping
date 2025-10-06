@@ -49,9 +49,23 @@ def get_event_description(event: Dict[str, Any]) -> str:
         action = push_data.get("action", "")
         commit_title = push_data.get("commit_title", "")
 
-        if ref.startswith("refs/heads/"):
+        # Обработка тегов
+        if ref.startswith("refs/tags/"):
+            tag_name = ref.replace("refs/tags/", "")
+            if action == "created":
+                description = f"Создан тег {tag_name} {author_name}"
+            elif action == "removed":
+                description = f"Удален тег {tag_name} {author_name}"
+            else:
+                description = f"Обновлен тег {tag_name} {author_name}"
+            if commit_title:
+                description += f": {commit_title}"
+        # Обработка веток
+        elif ref.startswith("refs/heads/"):
             branch = ref.replace("refs/heads/", "")
-            if action == "removed":
+            if action == "created":
+                description = f"Создана новая ветка {branch} {author_name}"
+            elif action == "removed":
                 description = f"Ветка {branch} удалена {author_name}"
             elif commit_count > 0:
                 if commit_count == 1:
@@ -85,8 +99,18 @@ def get_event_description(event: Dict[str, Any]) -> str:
             description = f"Merge Request закрыт {author_name}"
         elif action_name == "merged":
             description = f"Merge Request смержен {author_name}"
+        elif action_name == "reopened":
+            description = f"Merge Request переоткрыт {author_name}"
         elif action_name == "approved":
             description = f"Merge Request одобрен {author_name}"
+        elif action_name == "unapproved":
+            description = f"Одобрение Merge Request отозвано {author_name}"
+        elif action_name == "review_requested":
+            description = f"Запрошено ревью Merge Request {author_name}"
+        elif action_name == "ready":
+            description = f"Merge Request переведен в статус Ready {author_name}"
+        elif action_name == "draft":
+            description = f"Merge Request переведен в статус Draft {author_name}"
         else:
             description = f"Merge Request {action_name} от {author_name}"
 
@@ -102,10 +126,14 @@ def get_event_description(event: Dict[str, Any]) -> str:
 
         if action_name == "opened":
             description = f"Новая задача от {author_name}"
+        elif action_name == "updated":
+            description = f"Задача обновлена {author_name}"
         elif action_name == "closed":
             description = f"Задача закрыта {author_name}"
         elif action_name == "reopened":
             description = f"Задача переоткрыта {author_name}"
+        elif action_name == "moved":
+            description = f"Задача перемещена {author_name}"
         else:
             description = f"Задача {action_name} от {author_name}"
 
