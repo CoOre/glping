@@ -20,6 +20,50 @@ def get_pipeline_status_emoji(status: str) -> str:
         "running": "🏃",
         "pending": "⏳",
         "canceled": "🚫",
+        "skipped": "⏭️",
+    }
+    return status_emojis.get(status, "❓")
+
+
+def get_job_status_emoji(status: str) -> str:
+    """
+    Получить emoji для статуса job.
+
+    Args:
+        status: Статус job
+
+    Returns:
+        Emoji соответствующий статусу
+    """
+    status_emojis = {
+        "success": "✅",
+        "failed": "❌",
+        "running": "🔄",
+        "pending": "⏳",
+        "canceled": "🚫",
+        "skipped": "⏭️",
+        "manual": "⏸️",
+    }
+    return status_emojis.get(status, "❓")
+
+
+def get_deployment_status_emoji(status: str) -> str:
+    """
+    Получить emoji для статуса deployment.
+
+    Args:
+        status: Статус deployment
+
+    Returns:
+        Emoji соответствующий статусу
+    """
+    status_emojis = {
+        "created": "📝",
+        "running": "🚀",
+        "success": "✅",
+        "failed": "❌",
+        "canceled": "🚫",
+        "skipped": "⏭️",
     }
     return status_emojis.get(status, "❓")
 
@@ -194,6 +238,7 @@ def get_event_description(event: Dict[str, Any]) -> str:
             "running": "выполняется",
             "pending": "ожидает",
             "canceled": "отменен",
+            "skipped": "пропущен",
         }
         status_ru = status_map.get(status, status)
 
@@ -206,6 +251,72 @@ def get_event_description(event: Dict[str, Any]) -> str:
         # Добавляем ветку если есть
         if ref:
             description += f" для {ref}"
+
+        description += f" от {author_name}"
+
+        return f"{description} {event_date}".strip()
+
+    elif event_type == "Job":
+        # Получаем данные о job
+        job_data = event.get("data", {})
+        status = job_data.get("status", "неизвестно")
+        job_name = job_data.get("name", "")
+        job_id = event.get("target_id", "")
+        stage = job_data.get("stage", "")
+
+        status_map = {
+            "success": "успешно",
+            "failed": "с ошибкой",
+            "running": "выполняется",
+            "pending": "ожидает",
+            "canceled": "отменен",
+            "skipped": "пропущен",
+            "manual": "вручную",
+        }
+        status_ru = status_map.get(status, status)
+
+        # Формируем описание с названием job
+        if job_name:
+            description = f"Job '{job_name}' {status_ru}"
+        elif job_id:
+            description = f"Job #{job_id} {status_ru}"
+        else:
+            description = f"Job {status_ru}"
+
+        # Добавляем stage если есть
+        if stage:
+            description += f" (stage: {stage})"
+
+        description += f" от {author_name}"
+
+        return f"{description} {event_date}".strip()
+
+    elif event_type == "Deployment":
+        # Получаем данные о deployment
+        deployment_data = event.get("data", {})
+        status = deployment_data.get("status", "неизвестно")
+        environment = deployment_data.get("environment", "")
+        deployment_id = event.get("target_id", "")
+
+        status_map = {
+            "created": "создано",
+            "running": "выполняется",
+            "success": "успешно",
+            "failed": "с ошибкой",
+            "canceled": "отменено",
+            "skipped": "пропущено",
+        }
+        status_ru = status_map.get(status, status)
+
+        # Формируем описание
+        if deployment_id:
+            description = f"Развертывание #{deployment_id} {status_ru}"
+        else:
+            description = f"Развертывание {status_ru}"
+
+        # Добавляем environment если есть
+        if environment:
+            description += f" в {environment}"
 
         description += f" от {author_name}"
 
@@ -308,3 +419,99 @@ def save_pipeline_event_to_cache(pipeline: Dict[str, Any], project_id: int, cach
             if 'project_events' not in cache.data:
                 cache.data['project_events'] = {}
             cache.data['project_events'][str(project_id)] = list(cached_events)
+
+
+def job_to_event(job: Dict[str, Any], project: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Конвертировать job в формат события для унифицированной обработки.
+    
+    Args:
+        job: Данные job из GitLab API
+        project: Данные проекта
+        
+    Returns:
+        Словарь в формате события
+    """
+    # Создаем уникальный ID для job события
+    event_id = f"job_{job['id']}"
+    
+    # Определяем автора job
+    user = job.get("user") or {}
+    author_name = user.get("name", "Система CI/CD")
+    author_username = user.get("username", "system")
+    
+    return {
+        "id": event_id,
+        "target_type": "Job",
+        "action_name": "updated",
+        "created_at": job["created_at"],
+        "updated_at": job.get("updated_at", job["created_at"]),
+        "author": {
+            "name": author_name,
+            "username": author_username,
+            "avatar_url": user.get("avatar_url", "")
+        },
+        "target_id": job["id"],
+        "target_iid": job["id"],
+        "project_id": project["id"],
+        "data": {
+            "status": job["status"],
+            "name": job.get("name", ""),
+            "stage": job.get("stage", ""),
+            "ref": job.get("ref", ""),
+            "tag": job.get("tag", False),
+            "duration": job.get("duration"),
+            "web_url": job.get("web_url", "")
+        },
+        # Дополнительные поля для совместимости
+        "push_data": {},
+        "note": {}
+    }
+
+
+def deployment_to_event(deployment: Dict[str, Any], project: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Конвертировать deployment в формат события для унифицированной обработки.
+    
+    Args:
+        deployment: Данные deployment из GitLab API
+        project: Данные проекта
+        
+    Returns:
+        Словарь в формате события
+    """
+    # Создаем уникальный ID для deployment события
+    event_id = f"deployment_{deployment['id']}"
+    
+    # Определяем автора deployment
+    user = deployment.get("user") or {}
+    author_name = user.get("name", "Система CI/CD")
+    author_username = user.get("username", "system")
+    
+    return {
+        "id": event_id,
+        "target_type": "Deployment",
+        "action_name": "updated",
+        "created_at": deployment["created_at"],
+        "updated_at": deployment.get("updated_at", deployment["created_at"]),
+        "author": {
+            "name": author_name,
+            "username": author_username,
+            "avatar_url": user.get("avatar_url", "")
+        },
+        "target_id": deployment["id"],
+        "target_iid": deployment["id"],
+        "project_id": project["id"],
+        "data": {
+            "status": deployment["status"],
+            "environment": deployment.get("environment", ""),
+            "ref": deployment.get("ref", ""),
+            "tag": deployment.get("tag", False),
+            "deployable": deployment.get("deployable", {}),
+            "created_at": deployment.get("created_at"),
+            "updated_at": deployment.get("updated_at"),
+        },
+        # Дополнительные поля для совместимости
+        "push_data": {},
+        "note": {}
+    }

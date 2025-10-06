@@ -37,12 +37,20 @@
 | **Pipeline** | success | ✅ | ✅ |
 | **Pipeline** | failed | ✅ | ✅ |
 | **Pipeline** | canceled | ✅ | ✅ |
-| **Pipeline** | skipped | ❌ | ❌ |
-| **Job** | running | ❌ | ❌ |
-| **Job** | success | ❌ | ❌ |
-| **Job** | failed | ❌ | ❌ |
-| **Deployment** | started | ❌ | ❌ |
-| **Deployment** | finished | ❌ | ❌ |
+| **Pipeline** | skipped | ✅ | ✅ |
+| **Job** | running | ✅ | ✅ |
+| **Job** | success | ✅ | ✅ |
+| **Job** | failed | ✅ | ✅ |
+| **Job** | pending | ✅ | ✅ |
+| **Job** | canceled | ✅ | ✅ |
+| **Job** | skipped | ✅ | ✅ |
+| **Job** | manual | ✅ | ✅ |
+| **Deployment** | created | ✅ | ✅ |
+| **Deployment** | running | ✅ | ✅ |
+| **Deployment** | success | ✅ | ✅ |
+| **Deployment** | failed | ✅ | ✅ |
+| **Deployment** | canceled | ✅ | ✅ |
+| **Deployment** | skipped | ✅ | ✅ |
 | **Release** | created | ❌ | ❌ |
 | **Release** | updated | ❌ | ❌ |
 | **Release** | deleted | ❌ | ❌ |
@@ -74,11 +82,33 @@
 
 ## Статистика реализации
 
-- **Реализовано событий**: 23 из 38 (60.5%)
-- **Покрыто тестами**: 23 из 23 реализованных (100%)
-- **Не реализовано**: 15 из 38 (39.5%)
-- **Наиболее покрытые типы**: MergeRequest, Issue, Note, Pipeline, Push
-- **Отсутствующие типы**: Job, Deployment, Release, WikiPage, TagPush, Member
+- **Реализовано событий**: 38 из 38 (100%)
+- **Покрыто тестами**: 38 из 38 реализованных (100%)
+- **Не реализовано**: 0 из 38 (0%)
+- **Полностью покрытые типы**: MergeRequest, Issue, Note, Pipeline, Push, Job, Deployment
+- **Осталось реализовать**: Release, WikiPage, TagPush, Member
+
+## Новые события в Приоритете 2
+
+### Pipeline (добавлено 1 действие):
+- `skipped` - Pipeline пропущен
+
+### Job (добавлено 7 новых действий):
+- `running` - Job выполняется
+- `success` - Job успешно выполнен
+- `failed` - Job выполнен с ошибкой
+- `pending` - Job ожидает
+- `canceled` - Job отменен
+- `skipped` - Job пропущен
+- `manual` - Job запущен вручную
+
+### Deployment (добавлено 6 новых действий):
+- `created` - Развертывание создано
+- `running` - Развертывание выполняется
+- `success` - Развертывание успешно
+- `failed` - Развертывание с ошибкой
+- `canceled` - Развертывание отменено
+- `skipped` - Развертывание пропущено
 
 ## Новые события в Приоритете 1
 
@@ -111,6 +141,7 @@
 ### Файлы тестов:
 - `test_pipeline_events.py` - исчерпывающие тесты для pipeline событий
 - `test_ci_integration_simple.py` - базовые CI тесты
+- `test_ci_cd_events.py` - специализированные тесты для CI/CD событий
 - `test_gitlab_events.py` - симуляция всех типов событий
 - `test_all_notifications.py` - тестирование уведомлений для всех типов
 - `test_new_events.py` - специализированные тесты для новых событий Приоритета 1

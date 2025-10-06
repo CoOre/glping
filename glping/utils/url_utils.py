@@ -77,8 +77,12 @@ def get_event_url(
 
     elif target_type == "Commit" and target_id:
         return f"{gitlab_url}/{project_path}/-/commit/{target_id}"
+    
+    elif target_type == "Job" and target_id:
+        return f"{gitlab_url}/{project_path}/-/jobs/{target_id}"
+    
+    elif target_type == "Deployment" and target_id:
+        return f"{gitlab_url}/{project_path}/-/deployments/{target_id}"
 
-    elif target_type == "Pipeline" and target_id:
-        return f"{gitlab_url}/{project_path}/-/pipelines/{target_id}"
-
+    # URL по умолчанию
     return f"{gitlab_url}/{project_path}"
