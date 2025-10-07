@@ -21,6 +21,10 @@ help:
 	@echo "  build        - Собрать пакет"
 	@echo "  build-binary - Собрать бинарный файл"
 	@echo "  publish      - Опубликовать пакет в PyPI"
+	@echo "  changelog    - Сгенерировать changelog с помощью semantic-release"
+	@echo "  release      - Выполнить полный релиз (версия + changelog + tag)"
+	@echo "  release-dry  - Предварительный просмотр релиза без изменений"
+	@echo "  next-version - Показать следующую версию на основе коммитов"
 	@echo "  help         - Показать это справочное сообщение"
 	@echo ""
 	@echo "Примеры:"
@@ -222,7 +226,37 @@ format:
 	@python3 -m black glping/ tests/
 	@python3 -m isort glping/ tests/
 	@echo "✅ Форматирование кода завершено!"
+# Generate changelog with semantic-release
+changelog:
+	@echo "📝 Генерация changelog с помощью semantic-release..."
+	@echo "==================================================="
+	@python3 -m semantic_release changelog
+	@echo "✅ Changelog обновлен!"
 
+# Full release with semantic-release
+release:
+	@echo "🚀 Выполнение полного релиза..."
+	@echo "=============================="
+	@echo "📦 Установка зависимостей..."
+	@python3 -m pip install --break-system-packages python-semantic-release
+	@echo "🔍 Анализ коммитов и создание релиза..."
+	@python3 -m semantic_release version --commit --tag --push
+	@echo "✅ Релиз завершен!"
+
+# Dry run release (preview)
+release-dry:
+	@echo "🔍 Предварительный просмотр релиза..."
+	@echo "===================================="
+	@python3 -m pip install --break-system-packages python-semantic-release
+	@python3 -m semantic_release version --print --no-commit --no-tag --no-push --no-vcs-release
+	@echo "✅ Предварительный просмотр завершен!"
+
+# Show next version
+next-version:
+	@echo "🔢 Определение следующей версии..."
+	@echo "=================================="
+	@python3 -m pip install --break-system-packages python-semantic-release
+	@python3 -m semantic_release version --print
 # Test notification system
 test-notif:
 	@echo "🔔 Проверка системы уведомлений..."
