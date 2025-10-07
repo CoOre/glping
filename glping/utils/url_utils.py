@@ -83,6 +83,38 @@ def get_event_url(
     
     elif target_type == "Deployment" and target_id:
         return f"{gitlab_url}/{project_path}/-/deployments/{target_id}"
+    
+    elif target_type == "Release":
+        # Для релизов используем tag из данных события
+        event_data = event.get("data", {})
+        tag = event_data.get("tag", "")
+        if tag:
+            return f"{gitlab_url}/{project_path}/-/releases/{tag}"
+        elif target_id:
+            return f"{gitlab_url}/{project_path}/-/releases/{target_id}"
+    
+    elif target_type == "WikiPage":
+        # Для wiki страниц используем slug из данных события
+        event_data = event.get("data", {})
+        slug = event_data.get("slug", "")
+        if slug:
+            return f"{gitlab_url}/{project_path}/-/wikis/{slug}"
+        elif target_id:
+            return f"{gitlab_url}/{project_path}/-/wikis/{target_id}"
+    
+    elif target_type == "TagPush":
+        # Для tag push используем ref из данных события
+        event_data = event.get("data", {})
+        ref = event_data.get("ref", "")
+        if ref and ref.startswith("refs/tags/"):
+            tag_name = ref.replace("refs/tags/", "")
+            return f"{gitlab_url}/{project_path}/-/tags/{tag_name}"
+        elif target_id:
+            return f"{gitlab_url}/{project_path}/-/tags/{target_id}"
+    
+    elif target_type == "Member":
+        # Для участников ссылка на страницу управления участниками
+        return f"{gitlab_url}/{project_path}/-/project_members"
 
     # URL по умолчанию
     return f"{gitlab_url}/{project_path}"
