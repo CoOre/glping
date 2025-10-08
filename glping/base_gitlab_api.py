@@ -152,3 +152,33 @@ class BaseGitLabAPI(ABC):
             Список pipelines
         """
         pass
+
+    def get_project_jobs(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Получить jobs проекта.
+
+        Args:
+            project_id: ID проекта
+            updated_after: Фильтр по дате обновления
+
+        Returns:
+            Список jobs
+        """
+        pass
+
+    def get_project_deployments(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Получить deployments проекта.
+
+        Args:
+            project_id: ID проекта
+            updated_after: Фильтр по дате обновления
+
+        Returns:
+            Список deployments
+        """
+        pass

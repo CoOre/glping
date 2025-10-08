@@ -51,7 +51,7 @@ class TestPipelineEvents(unittest.TestCase):
         event = pipeline_to_event(self.sample_pipeline, self.sample_project)
         
         # Проверяем основные поля
-        self.assertEqual(event["id"], "pipeline_456")
+        self.assertEqual(event["id"], "pipeline_456_success")
         self.assertEqual(event["target_type"], "Pipeline")
         self.assertEqual(event["action_name"], "updated")
         self.assertEqual(event["target_id"], 456)
@@ -96,7 +96,7 @@ class TestPipelineEvents(unittest.TestCase):
         
         event = pipeline_to_event(minimal_pipeline, self.sample_project)
         
-        self.assertEqual(event["id"], "pipeline_789")
+        self.assertEqual(event["id"], "pipeline_789_failed")
         self.assertEqual(event["data"]["status"], "failed")
         self.assertEqual(event["author"]["name"], "Система CI/CD")
 
@@ -109,7 +109,7 @@ class TestPipelineEvents(unittest.TestCase):
         self.assertTrue(is_new_pipeline_event(self.sample_pipeline, 123, mock_cache))
         
         # Тест события в кеше
-        mock_cache.get_project_events.return_value = {"pipeline_456"}
+        mock_cache.get_project_events.return_value = {"pipeline_456_success"}
         self.assertFalse(is_new_pipeline_event(self.sample_pipeline, 123, mock_cache))
         
         # Тест другого события в кеше
@@ -122,7 +122,7 @@ class TestPipelineEvents(unittest.TestCase):
         
         save_pipeline_event_to_cache(self.sample_pipeline, 123, mock_cache)
         
-        mock_cache.save_project_event.assert_called_once_with(123, "pipeline_456")
+        mock_cache.save_project_event.assert_called_once_with(123, "pipeline_456_success")
 
     def test_pipeline_event_description(self):
         """Тест генерации описания для pipeline события"""
@@ -235,8 +235,8 @@ class TestPipelineIntegration(unittest.TestCase):
         
         # ID должны быть уникальными
         self.assertNotEqual(event1["id"], event2["id"])
-        self.assertEqual(event1["id"], "pipeline_100")
-        self.assertEqual(event2["id"], "pipeline_101")
+        self.assertEqual(event1["id"], "pipeline_100_success")
+        self.assertEqual(event2["id"], "pipeline_101_failed")
 
 
 def run_pipeline_tests():

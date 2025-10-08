@@ -175,8 +175,10 @@ class GitLabWatcher(BaseWatcher):
                 if verbose:
                     print(f"    Нет новых событий")
 
-            # Проверяем pipeline события отдельно
+            # Проверяем CI/CD события отдельно
             self._check_pipeline_events(project, verbose, last_checked_dt)
+            self._check_job_events(project, verbose, last_checked_dt)
+            self._check_deployment_events(project, verbose, last_checked_dt)
 
         except Exception as e:
             print(f"Ошибка при проверке проекта {project_name}: {e}")
@@ -349,6 +351,132 @@ class GitLabWatcher(BaseWatcher):
                 print(f"    Ошибка при проверке pipelines: {e}")
             else:
                 print(f"Ошибка при проверке pipelines для проекта {project_name}: {e}")
+
+    def _check_job_events(
+        self, project: Dict[str, Any], verbose: bool = False, last_checked_dt: Optional[datetime] = None
+    ):
+        """Отдельная проверка job событий"""
+        from .utils.event_utils import job_to_event, is_new_job_event, save_job_event_to_cache
+        
+        project_id = project["id"]
+        project_name = project.get("name_with_namespace", project.get("name", f"Проект {project_id}"))
+        
+        try:
+            # Получаем jobs, обновленные после последней проверки
+            updated_after = last_checked_dt.isoformat() if last_checked_dt else None
+            jobs = self.api.get_project_jobs(project_id, updated_after=updated_after)
+            
+            if verbose:
+                print(f"    Найдено jobs: {len(jobs)}")
+            
+            if not jobs:
+                return
+            
+            # Фильтруем и обрабатываем jobs
+            new_job_events = []
+            for job in jobs:
+                # Проверяем, что job новый или изменился статус
+                if is_new_job_event(job, project_id, self.cache):
+                    # Конвертируем job в событие
+                    event = job_to_event(job, project)
+                    
+                    # Дополнительная фильтрация по дате
+                    if last_checked_dt:
+                        try:
+                            job_dt = datetime.fromisoformat(
+                                job["created_at"].replace("Z", "+00:00")
+                            )
+                            if job_dt > last_checked_dt:
+                                new_job_events.append(event)
+                        except (ValueError, TypeError):
+                            # Если не удалось распарсить дату, включаем событие
+                            new_job_events.append(event)
+                    else:
+                        new_job_events.append(event)
+            
+            if new_job_events:
+                if verbose:
+                    print(f"    Найдено {len(new_job_events)} новых job событий")
+                
+                # Обрабатываем job события
+                for event in sorted(new_job_events, key=lambda x: x.get("created_at", "")):
+                    self._process_event(event, project_name, project_id, verbose)
+                
+                # Сохраняем job события в кеш
+                for job in jobs:
+                    save_job_event_to_cache(job, project_id, self.cache)
+                
+                if verbose:
+                    print(f"    Job события обработаны и сохранены в кеш")
+            
+        except Exception as e:
+            if verbose:
+                print(f"    Ошибка при проверке jobs: {e}")
+            else:
+                print(f"Ошибка при проверке jobs для проекта {project_name}: {e}")
+
+    def _check_deployment_events(
+        self, project: Dict[str, Any], verbose: bool = False, last_checked_dt: Optional[datetime] = None
+    ):
+        """Отдельная проверка deployment событий"""
+        from .utils.event_utils import deployment_to_event, is_new_deployment_event, save_deployment_event_to_cache
+        
+        project_id = project["id"]
+        project_name = project.get("name_with_namespace", project.get("name", f"Проект {project_id}"))
+        
+        try:
+            # Получаем deployments, обновленные после последней проверки
+            updated_after = last_checked_dt.isoformat() if last_checked_dt else None
+            deployments = self.api.get_project_deployments(project_id, updated_after=updated_after)
+            
+            if verbose:
+                print(f"    Найдено deployments: {len(deployments)}")
+            
+            if not deployments:
+                return
+            
+            # Фильтруем и обрабатываем deployments
+            new_deployment_events = []
+            for deployment in deployments:
+                # Проверяем, что deployment новый или изменился статус
+                if is_new_deployment_event(deployment, project_id, self.cache):
+                    # Конвертируем deployment в событие
+                    event = deployment_to_event(deployment, project)
+                    
+                    # Дополнительная фильтрация по дате
+                    if last_checked_dt:
+                        try:
+                            deployment_dt = datetime.fromisoformat(
+                                deployment["created_at"].replace("Z", "+00:00")
+                            )
+                            if deployment_dt > last_checked_dt:
+                                new_deployment_events.append(event)
+                        except (ValueError, TypeError):
+                            # Если не удалось распарсить дату, включаем событие
+                            new_deployment_events.append(event)
+                    else:
+                        new_deployment_events.append(event)
+            
+            if new_deployment_events:
+                if verbose:
+                    print(f"    Найдено {len(new_deployment_events)} новых deployment событий")
+                
+                # Обрабатываем deployment события
+                for event in sorted(new_deployment_events, key=lambda x: x.get("created_at", "")):
+                    self._process_event(event, project_name, project_id, verbose)
+                
+                # Сохраняем deployment события в кеш
+                for deployment in deployments:
+                    save_deployment_event_to_cache(deployment, project_id, self.cache)
+                
+                if verbose:
+                    print(f"    Deployment события обработаны и сохранены в кеш")
+            
+        except Exception as e:
+            if verbose:
+                print(f"    Ошибка при проверке deployments: {e}")
+            else:
+                print(f"Ошибка при проверке deployments для проекта {project_name}: {e}")
 
     def test_notification(self):
         """Отправить тестовое уведомление"""

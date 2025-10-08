@@ -110,7 +110,7 @@ class TestCICDEvents(unittest.TestCase):
         
         event = job_to_event(job, self.sample_project)
         
-        self.assertEqual(event["id"], "job_456")
+        self.assertEqual(event["id"], "job_456_success")
         self.assertEqual(event["target_type"], "Job")
         self.assertEqual(event["target_id"], 456)
         self.assertEqual(event["data"]["status"], "success")
@@ -195,7 +195,7 @@ class TestCICDEvents(unittest.TestCase):
         
         event = deployment_to_event(deployment, self.sample_project)
         
-        self.assertEqual(event["id"], "deployment_404")
+        self.assertEqual(event["id"], "deployment_404_success")
         self.assertEqual(event["target_type"], "Deployment")
         self.assertEqual(event["target_id"], 404)
         self.assertEqual(event["data"]["status"], "success")
@@ -268,8 +268,8 @@ class TestCICDIntegration(unittest.TestCase):
         
         # ID должны быть разными даже при одинаковом исходном ID
         self.assertNotEqual(job_event["id"], deployment_event["id"])
-        self.assertEqual(job_event["id"], "job_100")
-        self.assertEqual(deployment_event["id"], "deployment_100")
+        self.assertEqual(job_event["id"], "job_100_success")
+        self.assertEqual(deployment_event["id"], "deployment_100_success")
 
     def test_ci_cd_event_date_formatting(self):
         """Тест форматирования даты в CI/CD событиях"""

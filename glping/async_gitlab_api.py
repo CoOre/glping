@@ -272,3 +272,35 @@ class AsyncGitLabAPI(BaseGitLabAPI):
             params["updated_after"] = updated_after
         endpoint = f"projects/{project_id}/pipelines"
         return await self._make_request("GET", endpoint, params)
+
+    def get_project_jobs(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Получить jobs проекта."""
+        return asyncio.run(self._async_get_project_jobs(project_id, updated_after))
+
+    async def _async_get_project_jobs(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Асинхронный метод получения jobs."""
+        params = {}
+        if updated_after:
+            params["updated_after"] = updated_after
+        endpoint = f"projects/{project_id}/jobs"
+        return await self._make_request("GET", endpoint, params)
+
+    def get_project_deployments(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Получить deployments проекта."""
+        return asyncio.run(self._async_get_project_deployments(project_id, updated_after))
+
+    async def _async_get_project_deployments(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Асинхронный метод получения deployments."""
+        params = {}
+        if updated_after:
+            params["updated_after"] = updated_after
+        endpoint = f"projects/{project_id}/deployments"
+        return await self._make_request("GET", endpoint, params)
