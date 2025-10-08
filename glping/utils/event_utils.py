@@ -484,8 +484,10 @@ def pipeline_to_event(pipeline: Dict[str, Any], project: Dict[str, Any]) -> Dict
     Returns:
         Словарь в формате события
     """
-    # Создаем уникальный ID для pipeline события
-    event_id = f"pipeline_{pipeline['id']}"
+    # Создаем уникальный ID для pipeline события с учетом статуса
+    pipeline_id = pipeline["id"]
+    status = pipeline["status"]
+    event_id = f"pipeline_{pipeline_id}_{status}"
     
     # Определяем автора pipeline
     user = pipeline.get("user") or {}
@@ -522,7 +524,7 @@ def pipeline_to_event(pipeline: Dict[str, Any], project: Dict[str, Any]) -> Dict
 
 def is_new_pipeline_event(pipeline: Dict[str, Any], project_id: int, cache) -> bool:
     """
-    Проверить, является ли pipeline событие новым.
+    Проверить, является ли pipeline событие новым или изменился ли его статус.
     
     Args:
         pipeline: Данные pipeline
@@ -530,10 +532,11 @@ def is_new_pipeline_event(pipeline: Dict[str, Any], project_id: int, cache) -> b
         cache: Объект кеша
         
     Returns:
-        True если pipeline новый, False если уже обработан
+        True если pipeline новый или изменился статус, False если уже обработан с этим статусом
     """
     pipeline_id = pipeline["id"]
-    event_id = f"pipeline_{pipeline_id}"
+    status = pipeline["status"]
+    event_id = f"pipeline_{pipeline_id}_{status}"
     
     # Проверяем кеш событий
     cached_events = cache.get_project_events(project_id)
@@ -545,7 +548,7 @@ def is_new_pipeline_event(pipeline: Dict[str, Any], project_id: int, cache) -> b
 
 def save_pipeline_event_to_cache(pipeline: Dict[str, Any], project_id: int, cache):
     """
-    Сохранить pipeline событие в кеш.
+    Сохранить pipeline событие в кеш с учетом статуса.
     
     Args:
         pipeline: Данные pipeline
@@ -553,7 +556,108 @@ def save_pipeline_event_to_cache(pipeline: Dict[str, Any], project_id: int, cach
         cache: Объект кеша
     """
     pipeline_id = pipeline["id"]
-    event_id = f"pipeline_{pipeline_id}"
+    status = pipeline["status"]
+    event_id = f"pipeline_{pipeline_id}_{status}"
+    
+    # Проверяем наличие метода
+    if hasattr(cache, 'save_project_event'):
+        cache.save_project_event(project_id, event_id)
+    else:
+        # Альтернативный способ сохранения для совместимости
+        cached_events = cache.get_project_events(project_id) or set()
+        cached_events.add(event_id)
+        if hasattr(cache, 'data'):
+            if 'project_events' not in cache.data:
+                cache.data['project_events'] = {}
+            cache.data['project_events'][str(project_id)] = list(cached_events)
+
+
+def is_new_job_event(job: Dict[str, Any], project_id: int, cache) -> bool:
+    """
+    Проверить, является ли job событие новым или изменился ли его статус.
+    
+    Args:
+        job: Данные job
+        project_id: ID проекта
+        cache: Объект кеша
+        
+    Returns:
+        True если job новый или изменился статус, False если уже обработан с этим статусом
+    """
+    job_id = job["id"]
+    status = job["status"]
+    event_id = f"job_{job_id}_{status}"
+    
+    # Проверяем кеш событий
+    cached_events = cache.get_project_events(project_id)
+    if cached_events and event_id in cached_events:
+        return False
+    
+    return True
+
+
+def save_job_event_to_cache(job: Dict[str, Any], project_id: int, cache):
+    """
+    Сохранить job событие в кеш с учетом статуса.
+    
+    Args:
+        job: Данные job
+        project_id: ID проекта
+        cache: Объект кеша
+    """
+    job_id = job["id"]
+    status = job["status"]
+    event_id = f"job_{job_id}_{status}"
+    
+    # Проверяем наличие метода
+    if hasattr(cache, 'save_project_event'):
+        cache.save_project_event(project_id, event_id)
+    else:
+        # Альтернативный способ сохранения для совместимости
+        cached_events = cache.get_project_events(project_id) or set()
+        cached_events.add(event_id)
+        if hasattr(cache, 'data'):
+            if 'project_events' not in cache.data:
+                cache.data['project_events'] = {}
+            cache.data['project_events'][str(project_id)] = list(cached_events)
+
+
+def is_new_deployment_event(deployment: Dict[str, Any], project_id: int, cache) -> bool:
+    """
+    Проверить, является ли deployment событие новым или изменился ли его статус.
+    
+    Args:
+        deployment: Данные deployment
+        project_id: ID проекта
+        cache: Объект кеша
+        
+    Returns:
+        True если deployment новый или изменился статус, False если уже обработан с этим статусом
+    """
+    deployment_id = deployment["id"]
+    status = deployment["status"]
+    event_id = f"deployment_{deployment_id}_{status}"
+    
+    # Проверяем кеш событий
+    cached_events = cache.get_project_events(project_id)
+    if cached_events and event_id in cached_events:
+        return False
+    
+    return True
+
+
+def save_deployment_event_to_cache(deployment: Dict[str, Any], project_id: int, cache):
+    """
+    Сохранить deployment событие в кеш с учетом статуса.
+    
+    Args:
+        deployment: Данные deployment
+        project_id: ID проекта
+        cache: Объект кеша
+    """
+    deployment_id = deployment["id"]
+    status = deployment["status"]
+    event_id = f"deployment_{deployment_id}_{status}"
     
     # Проверяем наличие метода
     if hasattr(cache, 'save_project_event'):
@@ -579,8 +683,10 @@ def job_to_event(job: Dict[str, Any], project: Dict[str, Any]) -> Dict[str, Any]
     Returns:
         Словарь в формате события
     """
-    # Создаем уникальный ID для job события
-    event_id = f"job_{job['id']}"
+    # Создаем уникальный ID для job события с учетом статуса
+    job_id = job["id"]
+    status = job["status"]
+    event_id = f"job_{job_id}_{status}"
     
     # Определяем автора job
     user = job.get("user") or {}
@@ -627,8 +733,10 @@ def deployment_to_event(deployment: Dict[str, Any], project: Dict[str, Any]) -> 
     Returns:
         Словарь в формате события
     """
-    # Создаем уникальный ID для deployment события
-    event_id = f"deployment_{deployment['id']}"
+    # Создаем уникальный ID для deployment события с учетом статуса
+    deployment_id = deployment["id"]
+    status = deployment["status"]
+    event_id = f"deployment_{deployment_id}_{status}"
     
     # Определяем автора deployment
     user = deployment.get("user") or {}

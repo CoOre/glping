@@ -115,4 +115,26 @@ class GitLabAPI(BaseGitLabAPI):
         pipelines = project.pipelines.list(get_all=True, **params)
         return [pipeline.asdict() for pipeline in pipelines]
 
+    def get_project_jobs(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Получить jobs проекта."""
+        project = self.gl.projects.get(project_id)
+        params = {}
+        if updated_after:
+            params["updated_after"] = updated_after
+        jobs = project.jobs.list(get_all=True, **params)
+        return [job.asdict() for job in jobs]
+
+    def get_project_deployments(
+        self, project_id: int, updated_after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Получить deployments проекта."""
+        project = self.gl.projects.get(project_id)
+        params = {}
+        if updated_after:
+            params["updated_after"] = updated_after
+        deployments = project.deployments.list(get_all=True, **params)
+        return [deployment.asdict() for deployment in deployments]
+
     # Методы форматирования дат и событий теперь наследуются от базового класса
