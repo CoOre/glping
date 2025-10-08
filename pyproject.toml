@@ -141,6 +141,12 @@ commit_message = "chore(release): {version} [skip ci]"
 commit_author = "semantic-release <semantic-release@github>"
 tag_format = "v{version}"
 
+[tool.semantic_release.assets]
+paths = [
+    "dist/*",
+    "binaries/glping-*"
+]
+
 [tool.semantic_release.commit_parser_options]
 allowed_tags = [
     "build", "chore", "ci", "docs", "feat", "fix",
