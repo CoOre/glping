@@ -41,7 +41,7 @@ dev = [
     "black>=22.0.0",
     "isort>=5.0.0",
     "pyinstaller>=6.0.0",
-    "python-semantic-release>=9.0.0",
+    "python-semantic-release>=10.5.3",
 ]
 windows = [
     "psutil>=5.8.0",
